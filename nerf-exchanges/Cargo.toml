@@ -1,0 +1,13 @@
+[package]
+name = "nerf-exchanges"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+serde = { version = "1.0.137", features = ["derive"] }
+serde_with = "1.14.0"
+nerf = { version = "0.1", path = ".." }
+nerf-macros = { version = "0.1", path = "../nerf-macros" }
+rust_decimal = "1.25.0"

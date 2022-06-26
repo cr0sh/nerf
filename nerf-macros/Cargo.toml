@@ -1,0 +1,13 @@
+[package]
+edition = "2021"
+name = "nerf-macros"
+version = "0.1.0"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+http = "0.2.8"
+proc-macro2 = "1.0.40"
+quote = "1.0.20"
+syn = "1.0.98"
