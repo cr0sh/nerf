@@ -6,30 +6,19 @@ use bytes::Bytes;
 // To avoid ambiguity, avoid importing items under `hyper` namespace as possible.
 use hyper::client::ResponseFuture;
 use pin_project::pin_project;
-use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tower::{Layer, Service};
 
-use crate::{HttpRequest, Request};
-
 #[derive(Error, Debug)]
-pub enum HyperInteropError {
+pub enum HyperInteropError<E> {
     #[error(transparent)]
     Super(#[from] crate::Error),
-    #[error("Cannot construct HTTP request: {0}")]
-    ConstructHttpRequest(#[from] http::Error),
     #[error("Cannot encode GET parameters into query: {0}")]
     UrlencodeGetParams(#[from] serde_urlencoded::ser::Error),
     #[error(transparent)]
     Hyper(#[from] hyper::Error),
-}
-
-/// Fallible conversion into [`hyper::Request<Body>`].
-///
-/// This is a workaround for 'orphan rule' which prevents using `impl` [`From<T>`] `for` [`hyper::Request<Body>`]
-/// for such cases.
-pub trait TryIntoHyperRequest {
-    fn try_into_hyper_request(self) -> Result<hyper::Request<hyper::Body>, HyperInteropError>;
+    #[error("Cannot convert request into http::Request: {0}")]
+    HttpRequestConversion(E),
 }
 
 pub struct HyperLayer;
@@ -59,14 +48,14 @@ where
         Error = hyper::Error,
         Future = ResponseFuture,
     >,
-    Request: crate::Request<Response = Response> + TryIntoHyperRequest,
+    Request: crate::Request<Response = Response> + TryInto<hyper::Request<hyper::Body>>,
     Response: TryFrom<Bytes, Error = crate::Error>,
 {
     type Response = Response;
 
-    type Error = HyperInteropError;
+    type Error = HyperInteropError<Request::Error>;
 
-    type Future = HyperInteropFuture<Response>;
+    type Future = HyperInteropFuture<Response, Request::Error>;
 
     fn poll_ready(
         &mut self,
@@ -76,12 +65,16 @@ where
     }
 
     fn call(&mut self, req: Request) -> Self::Future {
-        let req = match req.try_into_hyper_request() {
+        let req = match req.try_into() {
             Ok(x) => x,
-            Err(err) => return HyperInteropFuture::SerializationFailed(Some(err)),
+            Err(err) => {
+                return HyperInteropFuture::ConversionFailed(Some(
+                    HyperInteropError::HttpRequestConversion(err),
+                ))
+            }
         };
         let fut = self.inner.call(req);
-        HyperInteropFuture::SerializationSucceeded(HyperInteropFutureInner {
+        HyperInteropFuture::ConversionSucceeded(HyperInteropFutureInner {
             response_fut: fut,
             to_bytes_fut: None,
             _phantom: PhantomData,
@@ -90,9 +83,9 @@ where
 }
 
 #[pin_project(project = HyperInteropFutureProj)]
-pub enum HyperInteropFuture<Resp> {
-    SerializationFailed(Option<HyperInteropError>),
-    SerializationSucceeded(#[pin] HyperInteropFutureInner<Resp>),
+pub enum HyperInteropFuture<Resp, E> {
+    ConversionFailed(Option<HyperInteropError<E>>),
+    ConversionSucceeded(#[pin] HyperInteropFutureInner<Resp>),
 }
 
 #[pin_project]
@@ -104,19 +97,19 @@ pub struct HyperInteropFutureInner<Resp> {
     _phantom: PhantomData<Resp>,
 }
 
-impl<Resp> Future for HyperInteropFuture<Resp>
+impl<Resp, E> Future for HyperInteropFuture<Resp, E>
 where
     Resp: TryFrom<Bytes, Error = crate::Error>,
 {
-    type Output = Result<Resp, HyperInteropError>;
+    type Output = Result<Resp, HyperInteropError<E>>;
 
     fn poll(
         self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Self::Output> {
         let this = match self.project() {
-            HyperInteropFutureProj::SerializationSucceeded(this) => this.project(),
-            HyperInteropFutureProj::SerializationFailed(err) => {
+            HyperInteropFutureProj::ConversionSucceeded(this) => this.project(),
+            HyperInteropFutureProj::ConversionFailed(err) => {
                 assert!(err.is_some());
                 return std::task::Poll::Ready(Err(err.take().unwrap()));
             }
@@ -135,31 +128,6 @@ where
             }
             std::task::Poll::Ready(Err(err)) => std::task::Poll::Ready(Err(err.into())),
             std::task::Poll::Pending => std::task::Poll::Pending,
-        }
-    }
-}
-
-impl<'a, T, Response> TryIntoHyperRequest for T
-where
-    T: HttpRequest + Request<Response = Response> + Serialize,
-    Response: Deserialize<'a>,
-{
-    fn try_into_hyper_request(self) -> Result<hyper::Request<hyper::Body>, HyperInteropError> {
-        if self.method() == http::Method::GET {
-            let params = serde_urlencoded::to_string(&self)
-                .map_err(HyperInteropError::UrlencodeGetParams)?;
-            let uri = self.uri();
-            assert!(uri.query().is_none()); // TODO
-            Ok(hyper::Request::builder()
-                .uri(format!("{uri}?{params}"))
-                .method(self.method())
-                .body(hyper::Body::empty())?)
-        } else {
-            let bytes = serde_json::to_vec(&self).map_err(crate::Error::SerializeRequest)?;
-            Ok(hyper::Request::builder()
-                .uri(self.uri())
-                .method(self.method())
-                .body(bytes.into())?)
         }
     }
 }
