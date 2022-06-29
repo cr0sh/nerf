@@ -8,6 +8,10 @@ edition = "2021"
 [dependencies]
 serde = { version = "1.0.137", features = ["derive"] }
 serde_with = "1.14.0"
-nerf = { version = "0.1", path = ".." }
+nerf = { version = "0.1", path = "../nerf" }
 nerf-macros = { version = "0.1", path = "../nerf-macros" }
 rust_decimal = "1.25.0"
+hyper = "0.14.19"
+thiserror = "1.0.31"
+serde_json = "1.0.81"
+serde_urlencoded = "0.7.1"
