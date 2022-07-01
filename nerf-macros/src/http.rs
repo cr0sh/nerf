@@ -5,14 +5,15 @@ use syn::{
     parse::{Parse, ParseStream},
     parse_macro_input,
     spanned::Spanned,
-    LitStr, Token, Type,
+    LitStr, Token,
 };
 
 use crate::{NamedItem, PunctuatedExt};
 
 struct HttpAttr {
     endpoint: LitStr,
-    response: Type,
+    response: Ident,
+    signer: Option<Ident>,
 }
 
 impl Parse for HttpAttr {
@@ -29,7 +30,7 @@ impl Parse for HttpAttr {
             })?
             .ok_or_else(|| syn::Error::new(input.span(), "endpoint is required"))?
             .clone();
-        let response = *attrs
+        let response = attrs
             .find_at_most_once(|x| {
                 if let HttpAttrKind::Response(x) = x {
                     Some(x)
@@ -39,6 +40,15 @@ impl Parse for HttpAttr {
             })?
             .ok_or_else(|| syn::Error::new(input.span(), "response is required"))?
             .clone();
+        let signer = attrs
+            .find_at_most_once(|x| {
+                if let HttpAttrKind::Signer(x) = x {
+                    Some(x)
+                } else {
+                    None
+                }
+            })?
+            .cloned();
 
         endpoint.value().parse::<http::uri::Uri>().map_err(|e| {
             syn::Error::new(
@@ -47,13 +57,18 @@ impl Parse for HttpAttr {
             )
         })?;
 
-        Ok(HttpAttr { endpoint, response })
+        Ok(HttpAttr {
+            endpoint,
+            response,
+            signer,
+        })
     }
 }
 
 enum HttpAttrKind {
     Endpoint(LitStr),
-    Response(Box<Type>),
+    Response(Ident),
+    Signer(Ident),
 }
 
 impl Parse for HttpAttrKind {
@@ -71,6 +86,12 @@ impl Parse for HttpAttrKind {
                     .map_err(|e| syn::Error::new(e.span(), "expected `=`"))?;
                 Ok(HttpAttrKind::Response(input.parse()?))
             }
+            "signer" => {
+                input
+                    .parse::<Token![=]>()
+                    .map_err(|e| syn::Error::new(e.span(), "expected `=`"))?;
+                Ok(HttpAttrKind::Signer(input.parse()?))
+            }
             other => Err(syn::Error::new(
                 key.span(),
                 format!("unexpected key {other}"),
@@ -84,6 +105,7 @@ impl Spanned for HttpAttrKind {
         match self {
             HttpAttrKind::Endpoint(x) => x.span(),
             HttpAttrKind::Response(x) => x.span(),
+            HttpAttrKind::Signer(x) => x.span(),
         }
     }
 }
@@ -93,7 +115,11 @@ pub fn entrypoint(
     item: TokenStream,
     method: proc_macro2::TokenStream,
 ) -> TokenStream {
-    let HttpAttr { endpoint, response } = parse_macro_input!(attr as HttpAttr);
+    let HttpAttr {
+        endpoint,
+        response,
+        signer,
+    } = parse_macro_input!(attr as HttpAttr);
     let item_ = item.clone();
     let NamedItem { ident } = parse_macro_input!(item_ as NamedItem);
     let item = proc_macro2::TokenStream::from(item);
@@ -104,8 +130,11 @@ pub fn entrypoint(
         }
     };
 
+    let signer = signer.map(|x| quote! { #x }).unwrap_or(quote! { () });
+
     let http_request_impl = quote! {
         impl ::nerf::HttpRequest for #ident {
+            type Signer = #signer;
             fn method(&self) -> ::nerf::http::Method {
                 #method
             }
