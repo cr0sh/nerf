@@ -115,12 +115,17 @@ pub fn entrypoint(
         }
     };
 
-    let response_impl = quote! {
-        impl TryFrom<::nerf::Bytes> for #response {
-            type Error = ::nerf::Error;
+    let request_shim_impl = quote! {
+        impl<T> ::core::convert::TryFrom<#ident> for Request<T>
+        where
+            T: ::core::convert::TryFrom<Request<#ident>>,
+        {
+            type Error = <T as ::core::convert::TryFrom<Request<#ident>>>::Error;
 
-            fn try_from(value: ::nerf::Bytes) -> Result<Self, Self::Error> {
-                ::nerf::serde_json::from_slice(&value).map_err(::nerf::Error::DeserializeResponse)
+            fn try_from(
+                value: #ident,
+            ) -> Result<Self, <Self as ::core::convert::TryFrom<#ident>>::Error> {
+                ::core::convert::TryFrom::try_from(Request(value)).map(Request)
             }
         }
     };
@@ -132,7 +137,7 @@ pub fn entrypoint(
 
         #http_request_impl
 
-        #response_impl
+        #request_shim_impl
     }
     .into()
 }

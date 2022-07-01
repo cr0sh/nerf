@@ -13,15 +13,25 @@ use tower::{Layer, Service};
 pub enum HyperInteropError<E> {
     #[error(transparent)]
     Super(#[from] crate::Error),
-    #[error("Cannot encode GET parameters into query: {0}")]
-    UrlencodeGetParams(#[from] serde_urlencoded::ser::Error),
     #[error(transparent)]
     Hyper(#[from] hyper::Error),
-    #[error("Cannot convert request into http::Request: {0}")]
-    HttpRequestConversion(E),
+    #[error(transparent)]
+    ConversionFailed(E), // Conversion of request or response failed
 }
 
-pub struct HyperLayer;
+pub struct HyperLayer(());
+
+impl HyperLayer {
+    pub fn new() -> Self {
+        Self(())
+    }
+}
+
+impl Default for HyperLayer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl<S> Layer<S> for HyperLayer
 where
@@ -49,7 +59,7 @@ where
         Future = ResponseFuture,
     >,
     Request: crate::Request<Response = Response> + TryInto<hyper::Request<hyper::Body>>,
-    Response: TryFrom<Bytes, Error = crate::Error>,
+    Response: TryFrom<Bytes, Error = Request::Error>,
 {
     type Response = Response;
 
@@ -69,7 +79,7 @@ where
             Ok(x) => x,
             Err(err) => {
                 return HyperInteropFuture::ConversionFailed(Some(
-                    HyperInteropError::HttpRequestConversion(err),
+                    HyperInteropError::ConversionFailed(err),
                 ))
             }
         };
@@ -99,7 +109,7 @@ pub struct HyperInteropFutureInner<Resp> {
 
 impl<Resp, E> Future for HyperInteropFuture<Resp, E>
 where
-    Resp: TryFrom<Bytes, Error = crate::Error>,
+    Resp: TryFrom<Bytes, Error = E>,
 {
     type Output = Result<Resp, HyperInteropError<E>>;
 
@@ -123,9 +133,11 @@ where
             }
         }
         match Pin::new(this.to_bytes_fut.as_mut().unwrap()).poll(cx) {
-            std::task::Poll::Ready(Ok(bytes)) => {
-                std::task::Poll::Ready(bytes.try_into().map_err(From::from))
-            }
+            std::task::Poll::Ready(Ok(bytes)) => std::task::Poll::Ready(
+                bytes
+                    .try_into()
+                    .map_err(HyperInteropError::ConversionFailed),
+            ),
             std::task::Poll::Ready(Err(err)) => std::task::Poll::Ready(Err(err.into())),
             std::task::Poll::Pending => std::task::Poll::Pending,
         }

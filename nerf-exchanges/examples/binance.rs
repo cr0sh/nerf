@@ -8,7 +8,8 @@ async fn main() -> Result<(), anyhow::Error> {
     tracing_subscriber::fmt().init();
 
     let mut svc = tower::ServiceBuilder::new()
-        .layer(HyperLayer)
+        .layer(binance::BinanceLayer::new())
+        .layer(HyperLayer::new())
         .service(hyper::Client::builder().build(HttpsConnector::new()));
 
     let result = svc

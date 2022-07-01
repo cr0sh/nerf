@@ -31,3 +31,9 @@ pub trait HttpRequest {
     fn method(&self) -> http::Method;
     fn uri(&self) -> http::Uri;
 }
+
+/// Extraction of private newtype wrappers.
+pub trait Extract<Output> {
+    type Error;
+    fn extract(self) -> Result<Output, Self::Error>;
+}

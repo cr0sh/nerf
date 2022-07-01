@@ -20,15 +20,6 @@ serde_json = "1.0.81"
 serde_urlencoded = "0.7.1"
 bytes = "1.1.0"
 
-[dev-dependencies]
-anyhow = "1.0.58"
-futures = "0.3.21"
-tokio = { version = "1.19.2", features = ["macros", "rt-multi-thread"] }
-nerf-exchanges = { path = "../nerf-exchanges" }
-tracing = "0.1.35"
-tracing-subscriber = "0.3.11"
-hyper-tls = "0.5.0"
-
 [features]
 default = ["reqwest_client"]
 reqwest_client = ["reqwest"]
