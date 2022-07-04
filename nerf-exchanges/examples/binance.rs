@@ -12,16 +12,13 @@ async fn main() -> Result<(), anyhow::Error> {
 
     let mut svc = tower::ServiceBuilder::new()
         .layer(binance::BinanceLayer::new())
-        .layer(nerf_exchanges::HttpSignLayer::new(()))
+        .layer(nerf_exchanges::HttpSignLayer::new(
+            binance::Authentication::new(key, secret),
+        ))
         .layer(HyperLayer::new())
         .service(hyper::Client::builder().build(HttpsConnector::new()));
 
-    let result = svc
-        .call(binance::GetApiV3Trades {
-            symbol: "BTCBUSD".into(),
-            limit: None,
-        })
-        .await?;
+    let result = svc.call(binance::GetApiV3Account {}).await?;
 
     tracing::info!("Result: {:?}", result);
 

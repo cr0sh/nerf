@@ -31,6 +31,12 @@ pub struct Authentication {
     secret: String,
 }
 
+impl Authentication {
+    pub fn new(key: String, secret: String) -> Self {
+        Self { key, secret }
+    }
+}
+
 pub struct Request<T>(T);
 
 impl<T> nerf::Request for Request<T>
@@ -38,6 +44,21 @@ where
     T: nerf::Request,
 {
     type Response = Response<T::Response>;
+}
+
+impl<T> nerf::HttpRequest for Request<T>
+where
+    T: nerf::HttpRequest,
+{
+    type Signer = T::Signer;
+
+    fn method(&self) -> hyper::http::Method {
+        self.0.method()
+    }
+
+    fn uri(&self) -> hyper::http::Uri {
+        self.0.uri()
+    }
 }
 
 impl<T> TryFrom<Request<T>> for hyper::Request<hyper::Body>
@@ -183,12 +204,12 @@ pub struct GetApiV3TradesResponseItem {
 
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize)]
-#[get("https://api.binance.com/api/v3/account", response = ApiV3AccountResponse, signer = UserDataSigner)]
-pub struct ApiV3Account {}
+#[get("https://api.binance.com/api/v3/account", response = GetApiV3AccountResponse, signer = UserDataSigner)]
+pub struct GetApiV3Account {}
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ApiV3AccountResponse {
+pub struct GetApiV3AccountResponse {
     pub maker_commission: Decimal,
     pub taker_commission: Decimal,
     pub buyer_commission: Decimal,
@@ -200,12 +221,12 @@ pub struct ApiV3AccountResponse {
     pub update_time: DateTime<Utc>,
     #[serde(skip)]
     pub account_type: (),
-    pub balances: Vec<ApiV3AccountBalanceItem>,
+    pub balances: Vec<GetApiV3AccountBalanceItem>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ApiV3AccountBalanceItem {
+pub struct GetApiV3AccountBalanceItem {
     pub asset: String,
     pub free: Decimal,
     pub locked: Decimal,
@@ -214,6 +235,13 @@ pub struct ApiV3AccountBalanceItem {
 pub struct UserDataSigner(());
 
 pub struct UserDataWrapped<R>(R, Authentication);
+
+impl<R> nerf::Request for UserDataWrapped<R>
+where
+    R: nerf::Request,
+{
+    type Response = R::Response;
+}
 
 impl<R> Signer<R> for UserDataSigner {
     type Wrapped = UserDataWrapped<R>;
