@@ -42,30 +42,6 @@ impl Authentication {
     }
 }
 
-pub struct Request<T>(T);
-
-impl<T> nerf::Request for Request<T>
-where
-    T: nerf::Request,
-{
-    type Response = Response<T::Response>;
-}
-
-impl<T> nerf::HttpRequest for Request<T>
-where
-    T: nerf::HttpRequest,
-{
-    type Signer = T::Signer;
-
-    fn method(&self) -> hyper::http::Method {
-        self.0.method()
-    }
-
-    fn uri(&self) -> hyper::http::Uri {
-        self.0.uri()
-    }
-}
-
 impl<T> TryFrom<Request<T>> for hyper::Request<hyper::Body>
 where
     T: nerf::Request + nerf::HttpRequest + Serialize,
@@ -166,8 +142,6 @@ where
     }
 }
 
-pub struct Response<T>(T);
-
 impl<T> TryIntoResponse<Response<T>> for hyper::Response<hyper::Body>
 where
     T: DeserializeOwned,
@@ -199,18 +173,6 @@ where
                 Ok(Response(resp))
             }
         })
-    }
-}
-
-impl<T> TryFrom<nerf::Bytes> for Response<T>
-where
-    T: DeserializeOwned,
-{
-    type Error = Error;
-
-    fn try_from(value: nerf::Bytes) -> Result<Self, Self::Error> {
-        let this = serde_json::from_slice(&value);
-        this.map(Response).map_err(Error::DeserializeJsonBody)
     }
 }
 

@@ -70,6 +70,32 @@ where
 #[macro_export]
 macro_rules! define_layer {
     ($layer:ident, $service:ident, $error:ident, $future:ident) => {
+        pub struct Request<T>(T);
+
+        impl<T> ::nerf::Request for Request<T>
+        where
+            T: ::nerf::Request,
+        {
+            type Response = Response<T::Response>;
+        }
+
+        impl<T> ::nerf::HttpRequest for Request<T>
+        where
+            T: ::nerf::HttpRequest,
+        {
+            type Signer = T::Signer;
+
+            fn method(&self) -> ::hyper::http::Method {
+                self.0.method()
+            }
+
+            fn uri(&self) -> ::hyper::http::Uri {
+                self.0.uri()
+            }
+        }
+
+        pub struct Response<T>(T);
+
         #[derive(Debug)]
         pub enum $error<E1, E2> {
             Local(E1),
