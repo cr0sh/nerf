@@ -5,7 +5,7 @@ use tower::Service;
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
-    tracing_subscriber::fmt().init();
+    tracing_subscriber::fmt::init();
 
     let key = std::env::var("BINANCE_API_KEY").unwrap();
     let secret = std::env::var("BINANCE_API_SECRET").unwrap();

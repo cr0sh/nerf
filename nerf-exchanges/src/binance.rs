@@ -23,6 +23,8 @@ pub enum Error {
     ConstructHttpRequest(nerf::http::Error),
     #[error("cannot deserialize response into JSON: {0}")]
     DeserializeJsonBody(serde_json::Error),
+    #[error("request to API server returned error, code: {code}, message: {msg}")]
+    RequestFailed { code: i64, msg: String },
 }
 
 #[derive(Clone)]

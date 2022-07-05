@@ -8,6 +8,7 @@ use hyper::client::ResponseFuture;
 use pin_project::pin_project;
 use thiserror::Error;
 use tower::{Layer, Service};
+use tracing::debug;
 
 #[derive(Error, Debug)]
 pub enum HyperInteropError<E> {
@@ -15,6 +16,8 @@ pub enum HyperInteropError<E> {
     Super(#[from] crate::Error),
     #[error(transparent)]
     Hyper(#[from] hyper::Error),
+    #[error("server responded with non-OK code {0}, UTF-8(lossy) contents: {1}")]
+    RequestFailed(http::StatusCode, String),
     #[error(transparent)]
     ConversionFailed(E), // Conversion of request or response failed
 }
@@ -87,6 +90,7 @@ where
         HyperInteropFuture::ConversionSucceeded(HyperInteropFutureInner {
             response_fut: fut,
             to_bytes_fut: None,
+            response_status: None,
             _phantom: PhantomData,
         })
     }
@@ -104,6 +108,7 @@ pub struct HyperInteropFutureInner<Resp> {
     response_fut: hyper::client::ResponseFuture,
     #[allow(clippy::type_complexity)]
     to_bytes_fut: Option<Pin<Box<dyn Future<Output = Result<Bytes, hyper::Error>>>>>,
+    response_status: Option<http::StatusCode>,
     _phantom: PhantomData<Resp>,
 }
 
@@ -113,6 +118,7 @@ where
 {
     type Output = Result<Resp, HyperInteropError<E>>;
 
+    #[tracing::instrument(skip_all)]
     fn poll(
         self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
@@ -126,18 +132,31 @@ where
         };
         if this.to_bytes_fut.is_none() {
             match this.response_fut.poll(cx) {
-                std::task::Poll::Ready(x) => {
-                    *this.to_bytes_fut = Some(Box::pin(hyper::body::to_bytes(x?)));
+                std::task::Poll::Ready(Ok(resp)) => {
+                    debug!(response_status = resp.status().to_string());
+                    *this.response_status = Some(resp.status());
+                    *this.to_bytes_fut = Some(Box::pin(hyper::body::to_bytes(resp)));
+                }
+                std::task::Poll::Ready(Err(err)) => {
+                    return std::task::Poll::Ready(Err(HyperInteropError::Hyper(err)))
                 }
                 std::task::Poll::Pending => return std::task::Poll::Pending,
             }
         }
         match Pin::new(this.to_bytes_fut.as_mut().unwrap()).poll(cx) {
-            std::task::Poll::Ready(Ok(bytes)) => std::task::Poll::Ready(
-                bytes
-                    .try_into()
-                    .map_err(HyperInteropError::ConversionFailed),
-            ),
+            std::task::Poll::Ready(Ok(bytes)) => {
+                if this.response_status.unwrap() != http::StatusCode::OK {
+                    return std::task::Poll::Ready(Err(HyperInteropError::RequestFailed(
+                        this.response_status.unwrap(),
+                        String::from_utf8_lossy(&bytes).to_string(),
+                    )));
+                }
+                std::task::Poll::Ready(
+                    bytes
+                        .try_into()
+                        .map_err(HyperInteropError::ConversionFailed),
+                )
+            }
             std::task::Poll::Ready(Err(err)) => std::task::Poll::Ready(Err(err.into())),
             std::task::Poll::Pending => std::task::Poll::Pending,
         }
