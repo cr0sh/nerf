@@ -43,9 +43,3 @@ pub trait Signer<R> {
     type Context;
     fn wrap_signer(req: R, context: Self::Context) -> Self::Wrapped;
 }
-
-/// Extraction of private newtype wrappers.
-pub trait Extract<Output> {
-    type Error;
-    fn extract(self) -> Result<Output, Self::Error>;
-}
