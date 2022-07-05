@@ -3,6 +3,8 @@
 
 mod error;
 mod hyper_interop;
+use std::future::Future;
+
 pub use hyper_interop::HyperLayer;
 
 pub use bytes::Bytes;
@@ -42,4 +44,12 @@ pub trait Signer<R> {
     type Wrapped;
     type Context;
     fn wrap_signer(req: R, context: Self::Context) -> Self::Wrapped;
+}
+
+/// Asynchronous, fallible conversion into certain type, mostly [`Request::Response`].
+pub trait TryIntoResponse<R> {
+    type Error;
+    type Future: Future<Output = Result<R, Self::Error>>;
+
+    fn try_into_response(self) -> Self::Future;
 }

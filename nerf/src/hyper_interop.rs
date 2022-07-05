@@ -1,14 +1,14 @@
 //! Interoperability between [`hyper::Client`]s.
 
-use std::{future::Future, marker::PhantomData, pin::Pin};
+use std::{future::Future, marker::PhantomData, task::Poll};
 
-use bytes::Bytes;
 // To avoid ambiguity, avoid importing items under `hyper` namespace as possible.
 use hyper::client::ResponseFuture;
 use pin_project::pin_project;
 use thiserror::Error;
 use tower::{Layer, Service};
-use tracing::debug;
+
+use crate::TryIntoResponse;
 
 #[derive(Error, Debug)]
 pub enum HyperInteropError<E> {
@@ -62,13 +62,17 @@ where
         Future = ResponseFuture,
     >,
     Request: crate::Request<Response = Response> + TryInto<hyper::Request<hyper::Body>>,
-    Response: TryFrom<Bytes, Error = Request::Error>,
+    hyper::Response<hyper::Body>: TryIntoResponse<Response, Error = Request::Error>,
 {
     type Response = Response;
 
     type Error = HyperInteropError<Request::Error>;
 
-    type Future = HyperInteropFuture<Response, Request::Error>;
+    type Future = HyperInteropFuture<
+        Response,
+        Request::Error,
+        <hyper::Response<hyper::Body> as TryIntoResponse<Response>>::Future,
+    >;
 
     fn poll_ready(
         &mut self,
@@ -81,84 +85,56 @@ where
         let req = match req.try_into() {
             Ok(x) => x,
             Err(err) => {
-                return HyperInteropFuture::ConversionFailed(Some(
+                return HyperInteropFuture::RequestConversionFailed(Some(
                     HyperInteropError::ConversionFailed(err),
                 ))
             }
         };
-        let fut = self.inner.call(req);
-        HyperInteropFuture::ConversionSucceeded(HyperInteropFutureInner {
-            response_fut: fut,
-            to_bytes_fut: None,
-            response_status: None,
-            _phantom: PhantomData,
-        })
+        HyperInteropFuture::AwaitingResponse(self.inner.call(req), PhantomData)
     }
 }
 
 #[pin_project(project = HyperInteropFutureProj)]
-pub enum HyperInteropFuture<Resp, E> {
-    ConversionFailed(Option<HyperInteropError<E>>),
-    ConversionSucceeded(#[pin] HyperInteropFutureInner<Resp>),
+pub enum HyperInteropFuture<Resp, E, TryIntoFut> {
+    RequestConversionFailed(Option<HyperInteropError<E>>),
+    AwaitingResponse(#[pin] hyper::client::ResponseFuture, PhantomData<Resp>),
+    ConvertingResponse(#[pin] TryIntoFut),
 }
 
-#[pin_project]
-pub struct HyperInteropFutureInner<Resp> {
-    #[pin]
-    response_fut: hyper::client::ResponseFuture,
-    #[allow(clippy::type_complexity)]
-    to_bytes_fut: Option<Pin<Box<dyn Future<Output = Result<Bytes, hyper::Error>>>>>,
-    response_status: Option<http::StatusCode>,
-    _phantom: PhantomData<Resp>,
-}
-
-impl<Resp, E> Future for HyperInteropFuture<Resp, E>
+impl<Resp, E, TryIntoFut> Future for HyperInteropFuture<Resp, E, TryIntoFut>
 where
-    Resp: TryFrom<Bytes, Error = E>,
+    hyper::Response<hyper::Body>: TryIntoResponse<Resp, Future = TryIntoFut, Error = E>,
+    TryIntoFut: Future<
+        Output = Result<Resp, <hyper::Response<hyper::Body> as TryIntoResponse<Resp>>::Error>,
+    >,
 {
     type Output = Result<Resp, HyperInteropError<E>>;
 
     #[tracing::instrument(skip_all)]
     fn poll(
-        self: std::pin::Pin<&mut Self>,
+        mut self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Self::Output> {
-        let this = match self.project() {
-            HyperInteropFutureProj::ConversionSucceeded(this) => this.project(),
-            HyperInteropFutureProj::ConversionFailed(err) => {
-                assert!(err.is_some());
-                return std::task::Poll::Ready(Err(err.take().unwrap()));
-            }
-        };
-        if this.to_bytes_fut.is_none() {
-            match this.response_fut.poll(cx) {
-                std::task::Poll::Ready(Ok(resp)) => {
-                    debug!(response_status = resp.status().to_string());
-                    *this.response_status = Some(resp.status());
-                    *this.to_bytes_fut = Some(Box::pin(hyper::body::to_bytes(resp)));
+        loop {
+            match self.as_mut().project() {
+                HyperInteropFutureProj::AwaitingResponse(fut, _) => {
+                    let result = match fut.poll(cx)? {
+                        Poll::Ready(x) => x,
+                        Poll::Pending => return Poll::Pending,
+                    };
+
+                    self.set(HyperInteropFuture::ConvertingResponse(
+                        result.try_into_response(),
+                    ));
                 }
-                std::task::Poll::Ready(Err(err)) => {
-                    return std::task::Poll::Ready(Err(HyperInteropError::Hyper(err)))
+                HyperInteropFutureProj::RequestConversionFailed(err) => {
+                    assert!(err.is_some());
+                    return std::task::Poll::Ready(Err(err.take().unwrap()));
                 }
-                std::task::Poll::Pending => return std::task::Poll::Pending,
-            }
-        }
-        match Pin::new(this.to_bytes_fut.as_mut().unwrap()).poll(cx) {
-            std::task::Poll::Ready(Ok(bytes)) => {
-                if this.response_status.unwrap() != http::StatusCode::OK {
-                    return std::task::Poll::Ready(Err(HyperInteropError::RequestFailed(
-                        this.response_status.unwrap(),
-                        String::from_utf8_lossy(&bytes).to_string(),
-                    )));
+                HyperInteropFutureProj::ConvertingResponse(fut) => {
+                    return fut.poll(cx).map_err(HyperInteropError::ConversionFailed)
                 }
-                std::task::Poll::Ready(
-                    bytes
-                        .try_into()
-                        .map_err(HyperInteropError::ConversionFailed),
-                )
-            }
-            std::task::Poll::Ready(Err(err)) => std::task::Poll::Ready(Err(err.into())),
-            std::task::Poll::Pending => std::task::Poll::Pending,
+            };
         }
     }
 }

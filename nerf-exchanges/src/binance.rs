@@ -1,8 +1,9 @@
-use std::fmt::Write;
+use std::{fmt::Write, future::Future, pin::Pin};
 
 use chrono::{serde::ts_milliseconds, DateTime, Utc};
 use hmac::{Hmac, Mac};
-use nerf::Signer;
+use hyper::body::Buf;
+use nerf::{http::StatusCode, Signer, TryIntoResponse};
 use nerf_macros::get;
 use pin_project::pin_project;
 use rust_decimal::Decimal;
@@ -25,6 +26,8 @@ pub enum Error {
     DeserializeJsonBody(serde_json::Error),
     #[error("request to API server returned error, code: {code}, message: {msg}")]
     RequestFailed { code: i64, msg: String },
+    #[error(transparent)]
+    Hyper(#[from] hyper::Error),
 }
 
 #[derive(Clone)]
@@ -164,6 +167,40 @@ where
 }
 
 pub struct Response<T>(T);
+
+impl<T> TryIntoResponse<Response<T>> for hyper::Response<hyper::Body>
+where
+    T: DeserializeOwned,
+{
+    type Error = Error;
+
+    type Future = Pin<Box<dyn Future<Output = Result<Response<T>, Error>>>>;
+
+    fn try_into_response(self) -> Self::Future {
+        Box::pin(async move {
+            let status = self.status();
+            let buf = hyper::body::aggregate(self).await?;
+            if status != StatusCode::OK {
+                #[derive(Deserialize)]
+                struct ErrorResponse {
+                    code: i64,
+                    msg: String,
+                }
+
+                let error: ErrorResponse =
+                    serde_json::from_reader(buf.reader()).map_err(Error::DeserializeJsonBody)?;
+                Err(Error::RequestFailed {
+                    code: error.code,
+                    msg: error.msg,
+                })
+            } else {
+                let resp: T =
+                    serde_json::from_reader(buf.reader()).map_err(Error::DeserializeJsonBody)?;
+                Ok(Response(resp))
+            }
+        })
+    }
+}
 
 impl<T> TryFrom<nerf::Bytes> for Response<T>
 where
