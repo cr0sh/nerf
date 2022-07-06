@@ -40,19 +40,19 @@ impl<S> Layer<S> for HyperLayer
 where
     S: Service<hyper::Request<hyper::Body>, Response = hyper::Response<hyper::Body>>,
 {
-    type Service = HyperInterop<S>;
+    type Service = HyperInteropService<S>;
 
     fn layer(&self, inner: S) -> Self::Service {
-        HyperInterop { inner }
+        HyperInteropService { inner }
     }
 }
 
 /// Wrapped [`hyper::Client`] to process nerf requests.
-pub struct HyperInterop<S> {
+pub struct HyperInteropService<S> {
     inner: S,
 }
 
-impl<S, Request, Response> Service<Request> for HyperInterop<S>
+impl<S, Request, Response> Service<Request> for HyperInteropService<S>
 where
     // Don't panic: this means S is either `hyper::Client` or `&hyper::Client`
     S: Service<
