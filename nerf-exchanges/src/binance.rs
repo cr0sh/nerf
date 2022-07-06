@@ -1,4 +1,8 @@
-use std::{fmt::Write, future::Future, pin::Pin};
+use std::{
+    fmt::{Debug, Write},
+    future::Future,
+    pin::Pin,
+};
 
 use chrono::{serde::ts_milliseconds, DateTime, Utc};
 use hmac::{Hmac, Mac};
@@ -11,6 +15,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use sha2::Sha256;
 use thiserror::Error;
+use tracing::trace;
 
 use crate::define_layer;
 
@@ -28,6 +33,8 @@ pub enum Error {
     RequestFailed { code: i64, msg: String },
     #[error(transparent)]
     Hyper(#[from] hyper::Error),
+    #[error("Unsupported HTTP method {0}")]
+    UnsupportedHttpMethod(nerf::http::Method),
 }
 
 #[derive(Clone)]
@@ -73,7 +80,7 @@ where
 
 impl<T> TryFrom<UserDataWrapped<Request<T>>> for hyper::Request<hyper::Body>
 where
-    T: nerf::Request + nerf::HttpRequest + Serialize,
+    T: nerf::Request + nerf::HttpRequest + Serialize + Debug,
 {
     type Error = Error;
 
@@ -81,7 +88,7 @@ where
         type HmacSha256 = Hmac<Sha256>;
         const SIGN_RECV_WINDOW_MILLIS: u64 = 2000;
 
-        #[derive(Serialize)]
+        #[derive(Serialize, Debug)]
         #[serde(rename_all = "camelCase")]
         struct SignedRequest<R>
         where
@@ -102,20 +109,22 @@ where
             recv_window: SIGN_RECV_WINDOW_MILLIS,
             timestamp: chrono::Utc::now(),
         };
+        trace!(uri = uri.to_string(), signed_req = ?signed_req, api_key = (value.1).key, method = method.to_string());
         let mut hmac = HmacSha256::new((value.1).secret.as_bytes().into());
         let params =
             serde_urlencoded::to_string(&signed_req).map_err(Error::SerializeUrlencodedBody)?;
         hmac.update(params.as_bytes());
         let signature = hmac.finalize().into_bytes();
         let signature = if params.is_empty() {
-            let mut s = String::with_capacity(signature.len() * 2);
+            let mut s = String::with_capacity(signature.len() * 2 + "signature=".len());
+            s.push_str("signature=");
             for &b in signature.as_slice() {
                 write!(&mut s, "{:02x}", b).unwrap();
             }
             s
         } else {
-            let mut s = String::with_capacity(signature.len() * 2 + 1);
-            s.push('&');
+            let mut s = String::with_capacity(signature.len() * 2 + "&signature=".len());
+            s.push_str("&signature=");
             for &b in signature.as_slice() {
                 write!(&mut s, "{:02x}", b).unwrap();
             }
@@ -124,20 +133,26 @@ where
 
         if method == nerf::http::Method::GET {
             assert!(uri.query().is_none()); // TODO
+            let full_uri = format!("{uri}?{params}{signature}");
+            trace!(full_uri = full_uri, "Method is GET");
             Ok(hyper::Request::builder()
-                .uri(format!("{uri}?{params}{signature}"))
+                .uri(full_uri)
                 .method(method)
                 .header("X-MBX-APIKEY", (value.1).key)
                 .body(hyper::Body::empty())
                 .map_err(Error::ConstructHttpRequest)?)
-        } else {
+        } else if method == nerf::http::Method::POST {
+            let body = format!("{params}{signature}");
+            trace!(body = body, "Method is POST");
             Ok(hyper::Request::builder()
                 .uri(uri)
                 .method(method)
                 .header("X-MBX-APIKEY", (value.1).key)
                 .header("Content-Type", "x-www-form-urlencoded")
-                .body(hyper::Body::from(format!("{params}{signature}")))
+                .body(hyper::Body::from(body))
                 .map_err(Error::ConstructHttpRequest)?)
+        } else {
+            Err(Error::UnsupportedHttpMethod(method))
         }
     }
 }
