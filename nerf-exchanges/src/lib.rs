@@ -1,4 +1,5 @@
 pub mod binance;
+pub mod common;
 
 /// A layer to wrap incoming HTTP requests with corresponding signer.
 pub struct HttpSignLayer<Context>(Context);
