@@ -78,13 +78,13 @@ where
     }
 }
 
-impl<T> TryFrom<UserDataWrapped<Request<T>>> for hyper::Request<hyper::Body>
+impl<T> TryFrom<BinanceSignerWrapped<Request<T>>> for hyper::Request<hyper::Body>
 where
     T: nerf::Request + nerf::HttpRequest + Serialize + Debug,
 {
     type Error = Error;
 
-    fn try_from(value: UserDataWrapped<Request<T>>) -> Result<Self, Self::Error> {
+    fn try_from(value: BinanceSignerWrapped<Request<T>>) -> Result<Self, Self::Error> {
         type HmacSha256 = Hmac<Sha256>;
         const SIGN_RECV_WINDOW_MILLIS: u64 = 2000;
 
@@ -220,7 +220,7 @@ pub struct GetApiV3TradesResponseItem {
 
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize)]
-#[get("https://api.binance.com/api/v3/account", response = GetApiV3AccountResponse, signer = UserDataSigner)]
+#[get("https://api.binance.com/api/v3/account", response = GetApiV3AccountResponse, signer = BinanceSigner)]
 pub struct GetApiV3Account {}
 
 #[derive(Clone, Debug, Deserialize)]
@@ -248,23 +248,23 @@ pub struct GetApiV3AccountBalanceItem {
     pub locked: Decimal,
 }
 
-pub struct UserDataSigner(());
+pub struct BinanceSigner(());
 
-pub struct UserDataWrapped<R>(R, Authentication);
+pub struct BinanceSignerWrapped<R>(R, Authentication);
 
-impl<R> nerf::Request for UserDataWrapped<R>
+impl<R> nerf::Request for BinanceSignerWrapped<R>
 where
     R: nerf::Request,
 {
     type Response = R::Response;
 }
 
-impl<R> Signer<R> for UserDataSigner {
-    type Wrapped = UserDataWrapped<R>;
+impl<R> Signer<R> for BinanceSigner {
+    type Wrapped = BinanceSignerWrapped<R>;
     type Context = Authentication;
 
     fn wrap_signer(req: R, context: Self::Context) -> Self::Wrapped {
-        UserDataWrapped(req, context)
+        BinanceSignerWrapped(req, context)
     }
 }
 
