@@ -135,7 +135,7 @@ pub struct GetOrderbook {
     /// may have `2*ticks` entries.
     /// Note that this is not a strict requirement, so callers should expect or rely
     /// that the returned orderbook to have exactly `2*ticks` entries.
-    pub ticks: u64,
+    pub ticks: Option<u64>,
 }
 
 #[derive(Debug)]
