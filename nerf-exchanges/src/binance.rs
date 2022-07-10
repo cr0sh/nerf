@@ -8,7 +8,7 @@ use chrono::{serde::ts_milliseconds, DateTime, Utc};
 use hmac::{Hmac, Mac};
 use hyper::body::Buf;
 use nerf::{http::StatusCode, Signer, TryIntoResponse};
-use nerf_macros::get;
+use nerf_macros::{get, post};
 use pin_project::pin_project;
 use rust_decimal::Decimal;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -17,7 +17,7 @@ use sha2::Sha256;
 use thiserror::Error;
 use tracing::trace;
 
-use crate::define_layer;
+use crate::{common, define_layer};
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -47,6 +47,35 @@ impl Authentication {
     pub fn new(key: String, secret: String) -> Self {
         Self { key, secret }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum Side {
+    Buy,
+    Sell,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum OrderType {
+    Limit,
+    Market,
+    StopLoss,
+    StopLossLimit,
+    TakeProfit,
+    TakeProfitLimit,
+    LimitMaker,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TimeInForce {
+    #[serde(rename = "GTC")]
+    GoodTilCanceled,
+    #[serde(rename = "IOC")]
+    ImmediateOrCancel,
+    #[serde(rename = "FOK")]
+    FillOrKill,
 }
 
 impl<T> TryFrom<Request<T>> for hyper::Request<hyper::Body>
@@ -220,6 +249,41 @@ pub struct GetApiV3TradesResponseItem {
 
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize)]
+#[get("https://api.binance.com/api/v3/depth", response = GetApiV3DepthResponse)]
+pub struct GetApiV3Depth {
+    pub symbol: String,
+    pub limit: Option<u64>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetApiV3DepthResponse {
+    pub last_update_id: u64,
+    pub bids: Vec<BinanceOrderbookItem>,
+    pub asks: Vec<BinanceOrderbookItem>,
+}
+
+#[derive(Clone, Debug)]
+pub struct BinanceOrderbookItem {
+    pub price: Decimal,
+    pub quantity: Decimal,
+}
+
+impl<'de> Deserialize<'de> for BinanceOrderbookItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let inner: (Decimal, Decimal) = Deserialize::deserialize(deserializer)?;
+        Ok(Self {
+            price: inner.0,
+            quantity: inner.1,
+        })
+    }
+}
+
+#[skip_serializing_none]
+#[derive(Clone, Debug, Serialize)]
 #[get("https://api.binance.com/api/v3/account", response = GetApiV3AccountResponse, signer = BinanceSigner)]
 pub struct GetApiV3Account {}
 
@@ -246,6 +310,45 @@ pub struct GetApiV3AccountBalanceItem {
     pub asset: String,
     pub free: Decimal,
     pub locked: Decimal,
+}
+
+#[skip_serializing_none]
+#[derive(Clone, Debug, Serialize)]
+#[post("https://api.binance.com/api/v3/order", response = PostApiV3OrderResponse, signer = BinanceSigner)]
+pub struct PostApiV3Order {
+    pub symbol: String,
+    pub side: Side,
+    #[serde(rename = "type")]
+    pub order_type: OrderType,
+    pub time_in_force: Option<TimeInForce>,
+    pub quantity: Option<Decimal>,
+    pub quote_order_qty: Option<Decimal>,
+    pub price: Option<Decimal>,
+    pub new_client_order_id: Option<String>,
+    pub stop_price: Option<Decimal>,
+    pub trailing_delta: Option<u64>,
+    pub iceberg_qty: Option<Decimal>,
+    pub new_order_resp_type: Option<&'static str>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PostApiV3OrderResponse {
+    pub symbol: String,
+    pub order_id: u64,
+    pub order_list_id: i64,
+    pub client_order_id: Option<String>,
+    #[serde(with = "ts_milliseconds")]
+    pub transact_time: DateTime<Utc>, // TODO: better deserializatoin
+    pub price: Option<Decimal>,
+    pub orig_qty: Option<Decimal>,
+    pub executed_qty: Option<Decimal>,
+    pub cumulative_quote_qty: Option<Decimal>,
+    pub status: Option<String>, // TODO
+    pub time_in_force: Option<TimeInForce>,
+    #[serde(rename = "type")]
+    pub order_type: Option<OrderType>,
+    pub side: Option<Side>,
 }
 
 pub struct BinanceSigner(());
