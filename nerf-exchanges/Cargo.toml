@@ -30,3 +30,8 @@ tracing = "0.1.35"
 tracing-subscriber = { version = "0.3.11", features = ["env-filter"] }
 hyper-tls = "0.5.0"
 nerf = { path = "../nerf" }
+criterion = "0.3.6"
+
+[[bench]]
+name = "binance_serde"
+harness = false
