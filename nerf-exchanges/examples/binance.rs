@@ -1,8 +1,7 @@
 use hyper_tls::HttpsConnector;
 use nerf::HyperLayer;
-use nerf_exchanges::binance;
+use nerf_exchanges::{binance, ReadyCall};
 use rust_decimal::Decimal;
-use tower::Service;
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
@@ -20,7 +19,7 @@ async fn main() -> Result<(), anyhow::Error> {
         .service(hyper::Client::builder().build(HttpsConnector::new()));
 
     let result = svc
-        .call(binance::GetApiV3Depth {
+        .ready_call(binance::GetApiV3Depth {
             symbol: "BTCBUSD".to_string(),
             limit: Some(100),
         })
@@ -29,7 +28,7 @@ async fn main() -> Result<(), anyhow::Error> {
     tracing::info!("Result: {:#?}", result);
 
     let result = svc
-        .call(binance::PostApiV3Order {
+        .ready_call(binance::PostApiV3Order {
             symbol: "USDCBUSD".to_string(),
             side: binance::Side::Buy,
             order_type: binance::OrderType::Market,

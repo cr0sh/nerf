@@ -1,5 +1,8 @@
 pub mod binance;
 pub mod common;
+mod ready_call;
+
+pub use ready_call::ReadyCall;
 
 /// A layer to wrap incoming HTTP requests with corresponding signer.
 pub struct HttpSignLayer<Context>(Context);
@@ -56,6 +59,9 @@ where
         ))
     }
 }
+
+/// Defines conversion of requests/responses to [`common`] types.
+trait FromExchangeRequest<R> {}
 
 /// Defines a [`tower::Layer`], [`tower::Service`], and dedicated [`std::error::Error`] and
 /// [`std::future::Future`] implementor to bridge between exchange-local request types
