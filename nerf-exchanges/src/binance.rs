@@ -378,3 +378,21 @@ impl<R> Signer<Request<R>> for () {
         req
     }
 }
+
+impl From<common::GetTrades> for Request<GetApiV3Trades> {
+    fn from(x: common::GetTrades) -> Self {
+        Request(GetApiV3Trades {
+            symbol: format!("{}{}", x.market.base(), x.market.quote()),
+            limit: None,
+        })
+    }
+}
+
+impl From<common::GetOrderbook> for Request<GetApiV3Depth> {
+    fn from(x: common::GetOrderbook) -> Self {
+        Request(GetApiV3Depth {
+            symbol: format!("{}{}", x.market.base(), x.market.quote()),
+            limit: x.ticks,
+        })
+    }
+}
