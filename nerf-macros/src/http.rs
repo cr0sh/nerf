@@ -1,6 +1,8 @@
+use once_cell::sync::Lazy;
 use proc_macro::TokenStream;
 use proc_macro2::Ident;
 use quote::quote;
+use regex::Regex;
 use syn::{
     parse::{Parse, ParseStream},
     parse_macro_input,
@@ -110,6 +112,41 @@ impl Spanned for HttpAttrKind {
     }
 }
 
+/// Parses raw endpoint string into `format!`-able string and subsequent parameteres.
+fn parse_endpoint(mut raw: String) -> (String, Vec<String>) {
+    static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#":[a-zA-Z_][a-zA-Z0-9_]*"#).unwrap());
+    let mut fields = Vec::new();
+    while let Some(m) = RE.find(&raw) {
+        let range = m.range();
+        assert!(range.len() > 1);
+        fields.push(format!("self.{}", &raw[(range.start + 1)..range.end]));
+        raw.replace_range(range, "{}");
+    }
+    (raw, fields)
+}
+
+#[test]
+fn test_parse_endpoint() {
+    fn case(s: &'static str, t: &'static str, u: &[&'static str]) {
+        let (a, b) = parse_endpoint(String::from(s));
+        assert_eq!(a, t);
+        assert_eq!(b, u.iter().cloned().map(String::from).collect::<Vec<_>>());
+    }
+
+    case("foobarbaz", "foobarbaz", &[]);
+    case("http://foo", "http://foo", &[]);
+    case(
+        "http://foo/:bar/:baz",
+        "http://foo/{}/{}",
+        &["self.bar", "self.baz"],
+    );
+    case(
+        "http://foo/:bar/:baz/qux",
+        "http://foo/{}/{}/qux",
+        &["self.bar", "self.baz"],
+    );
+}
+
 pub fn entrypoint(
     attr: TokenStream,
     item: TokenStream,
@@ -131,6 +168,19 @@ pub fn entrypoint(
     };
 
     let signer = signer.map(|x| quote! { #x }).unwrap_or(quote! { () });
+
+    if endpoint.value().contains("{}") {
+        return syn::Error::new(endpoint.span(), "endpoint must not contain `{}`\nIf you meant a place for format arguments, use `:field_name` instead")
+            .into_compile_error()
+            .into();
+    }
+
+    let (sub, args) = parse_endpoint(endpoint.value());
+    let sub = LitStr::new(&sub, endpoint.span());
+
+    let endpoint = quote! {
+        format!(#sub, #(#args),*)
+    };
 
     let http_request_impl = quote! {
         impl ::nerf::HttpRequest for #ident {
