@@ -355,6 +355,43 @@ pub struct PostApiV3OrderResponse {
     pub side: Option<Side>,
 }
 
+#[derive(Clone, Debug, Serialize)]
+#[post("https://api.binance.com/api/v3/openOrders", response = GetApiV3OpenOrdersResponse, signer = BinanceSigner)]
+#[serde(rename_all = "camelCase")]
+pub struct GetApiV3OpenOrders {
+    pub symbol: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(transparent)]
+pub struct GetApiV3OpenOrdersResponse(Vec<GetApiV3OpenOrdersResponseItem>);
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetApiV3OpenOrdersResponseItem {
+    pub symbol: String,
+    pub order_id: u64,
+    pub order_list_id: i64,
+    pub client_order_id: String,
+    pub price: Decimal,
+    pub orig_qty: Decimal,
+    pub executed_qty: Decimal,
+    pub cumulative_quote_qty: Decimal,
+    pub status: String, // TODO: make this enum
+    pub time_in_force: TimeInForce,
+    #[serde(rename = "type")]
+    pub order_type: OrderType,
+    pub side: Side,
+    pub stop_price: Decimal,
+    pub iceberg_qty: Decimal,
+    #[serde(with = "ts_milliseconds")]
+    pub time: DateTime<Utc>,
+    #[serde(with = "ts_milliseconds")]
+    pub update_time: DateTime<Utc>,
+    pub is_working: bool,
+    pub orig_quote_order_qty: Decimal,
+}
+
 pub struct BinanceSigner(());
 
 pub struct BinanceSignerWrapped<R>(R, Authentication);
@@ -401,22 +438,67 @@ impl From<common::GetOrderbook> for GetApiV3Depth {
     }
 }
 
+impl From<common::GetOrders> for GetApiV3OpenOrders {
+    fn from(x: common::GetOrders) -> Self {
+        GetApiV3OpenOrders {
+            symbol: format!("{}{}", x.market.base(), x.market.quote()),
+        }
+    }
+}
+
+impl From<common::PlaceOrder> for PostApiV3Order {
+    fn from(x: common::PlaceOrder) -> Self {
+        PostApiV3Order {
+            symbol: format!("{}{}", x.market.base(), x.market.quote()),
+            side: match x.order.side() {
+                common::Side::Buy => Side::Buy,
+                common::Side::Sell => Side::Sell,
+            },
+            order_type: match x.order {
+                common::Order::Market { .. } => OrderType::Market,
+                common::Order::Limit { .. } => OrderType::Limit,
+                common::Order::StopMarket { .. } => todo!(), // FIXME
+                common::Order::StopLimit { .. } => todo!(),  // FIXME
+            },
+            time_in_force: x.order.time_in_force().map(|tif| match tif {
+                common::TimeInForce::GoodTilCancled => TimeInForce::GoodTilCanceled,
+                common::TimeInForce::ImmediateOrCancel => TimeInForce::ImmediateOrCancel,
+                common::TimeInForce::FillOrKill => TimeInForce::FillOrKill,
+            }),
+            quantity: Some(x.order.quantity()),
+            quote_order_qty: None,
+            price: x.order.price(),
+            new_client_order_id: None,
+            stop_price: x.order.stop_price(),
+            trailing_delta: None,
+            iceberg_qty: None,
+            new_order_resp_type: Some("FULL"),
+        }
+    }
+}
+
+impl From<common::GetBalance> for GetApiV3Account {
+    fn from(_: common::GetBalance) -> Self {
+        GetApiV3Account {} // FIXME: GetBalance.asset is ignored
+    }
+}
+
 impl<S> CommonOps for BinanceService<S> {
     type GetTradesRequest = GetApiV3Trades;
 
     type GetOrderbookRequest = GetApiV3Depth;
 
-    type GetOrdersRequest = Unsupported;
+    type GetOrdersRequest = GetApiV3OpenOrders;
 
     type GetAllOrdersRequest = Unsupported;
 
-    type PlaceOrderRequest = Unsupported;
+    type PlaceOrderRequest = PostApiV3Order;
 
     type CancelOrderRequest = Unsupported;
 
     type CancelAllOrdersRequest = Unsupported;
 
-    type GetBalanceRequest = Unsupported;
+    type GetBalanceRequest = GetApiV3Account;
 
     type GetPositionRequest = Unsupported;
 }

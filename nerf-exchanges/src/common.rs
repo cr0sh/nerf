@@ -105,23 +105,25 @@ pub enum Side {
 pub enum Order {
     Market {
         side: Side,
-        size: Decimal,
+        quantity: Decimal,
     },
     Limit {
         side: Side,
-        size: Decimal,
+        quantity: Decimal,
         price: Decimal,
+        time_in_force: TimeInForce,
     },
     StopMarket {
         side: Side,
         stop_price: Decimal,
-        size: Decimal,
+        quantity: Decimal,
     },
     StopLimit {
         side: Side,
         stop_price: Decimal,
-        size: Decimal,
+        quantity: Decimal,
         price: Decimal,
+        time_in_force: TimeInForce,
     },
 }
 
@@ -135,6 +137,54 @@ impl Order {
             Order::StopLimit { side, .. } => *side,
         }
     }
+
+    /// Returns the *time in force* of this [`Order`] if applicable.
+    pub fn time_in_force(&self) -> Option<TimeInForce> {
+        match self {
+            Order::Market { .. } => None,
+            Order::Limit { time_in_force, .. } => Some(*time_in_force),
+            Order::StopMarket { .. } => None,
+            Order::StopLimit { time_in_force, .. } => Some(*time_in_force),
+        }
+    }
+
+    /// Returns the quantity of this [`Order`].
+    pub fn quantity(&self) -> Decimal {
+        match self {
+            Order::Market { quantity, .. } => *quantity,
+            Order::Limit { quantity, .. } => *quantity,
+            Order::StopMarket { quantity, .. } => *quantity,
+            Order::StopLimit { quantity, .. } => *quantity,
+        }
+    }
+
+    /// Returns the price of this [`Order`] if applicable.
+    pub fn price(&self) -> Option<Decimal> {
+        match self {
+            Order::Market { .. } => None,
+            Order::Limit { price, .. } => Some(*price),
+            Order::StopMarket { .. } => None,
+            Order::StopLimit { price, .. } => Some(*price),
+        }
+    }
+
+    /// Returns the stop price of this [`Order`] if applicable.
+    pub fn stop_price(&self) -> Option<Decimal> {
+        match self {
+            Order::Market { .. } => None,
+            Order::Limit { .. } => None,
+            Order::StopMarket { stop_price, .. } => Some(*stop_price),
+            Order::StopLimit { stop_price, .. } => Some(*stop_price),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[non_exhaustive]
+pub enum TimeInForce {
+    GoodTilCancled,
+    ImmediateOrCancel,
+    FillOrKill,
 }
 
 #[derive(Debug)]
