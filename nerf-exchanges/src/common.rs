@@ -95,7 +95,7 @@ impl FromStr for MarketKind {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub enum Side {
     Buy,
     Sell,
@@ -123,6 +123,18 @@ pub enum Order {
         size: Decimal,
         price: Decimal,
     },
+}
+
+impl Order {
+    /// Returns the side of this [`Order`].
+    pub fn side(&self) -> Side {
+        match self {
+            Order::Market { side, .. } => *side,
+            Order::Limit { side, .. } => *side,
+            Order::StopMarket { side, .. } => *side,
+            Order::StopLimit { side, .. } => *side,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -176,11 +188,42 @@ pub type BoxedServiceFuture<'a, S, Request> =
     Pin<Box<dyn Future<Output = <<S as tower::Service<Request>>::Future as Future>::Output> + 'a>>;
 
 /// A special type to indicate request is unsupported, used on [`CommonOpsService`]'s associated type
-pub type Unsupported = Infallible;
+///
+/// May be migrated into alias of `!` once the `never` type is stabilized.
+pub enum Unsupported {}
+
+// impl<T> From<T> for Unsupported {
+//     fn from(x: T) -> Self {
+//         panic!("Unsupported request");
+//     }
+// }
+
+impl Future for Unsupported {
+    type Output = Result<Infallible, Infallible>;
+
+    fn poll(
+        self: Pin<&mut Self>,
+        _cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Self::Output> {
+        match *self.get_mut() {}
+    }
+}
+
+pub trait CommonOps {
+    type GetTradesRequest: TryFrom<GetTrades>;
+    type GetOrderbookRequest: TryFrom<GetOrderbook>;
+    type GetOrdersRequest: TryFrom<GetOrders>;
+    type GetAllOrdersRequest: TryFrom<GetAllOrders>;
+    type PlaceOrderRequest: TryFrom<PlaceOrder>;
+    type CancelOrderRequest: TryFrom<CancelOrder>;
+    type CancelAllOrdersRequest: TryFrom<CancelAllOrders>;
+    type GetBalanceRequest: TryFrom<GetBalance>;
+    type GetPositionRequest: TryFrom<GetPosition>;
+}
 
 /// Constraints to ensure that a service support [`tower::Service`] for common requests
 pub trait CommonOpsService:
-    Sized
+    CommonOps
     + tower::Service<Self::GetTradesRequest>
     + tower::Service<Self::GetOrderbookRequest>
     + tower::Service<Self::GetOrdersRequest>
@@ -192,35 +235,83 @@ pub trait CommonOpsService:
     + tower::Service<Self::GetPositionRequest>
 where
     <Self as tower::Service<Self::GetTradesRequest>>::Error:
-        From<<Self as CommonOpsService>::Error>,
+        From<<Self::GetTradesRequest as TryFrom<GetTrades>>::Error>,
     <Self as tower::Service<Self::GetOrderbookRequest>>::Error:
-        From<<Self as CommonOpsService>::Error>,
+        From<<Self::GetOrderbookRequest as TryFrom<GetOrderbook>>::Error>,
     <Self as tower::Service<Self::GetOrdersRequest>>::Error:
-        From<<Self as CommonOpsService>::Error>,
+        From<<Self::GetOrdersRequest as TryFrom<GetOrders>>::Error>,
     <Self as tower::Service<Self::GetAllOrdersRequest>>::Error:
-        From<<Self as CommonOpsService>::Error>,
+        From<<Self::GetAllOrdersRequest as TryFrom<GetAllOrders>>::Error>,
     <Self as tower::Service<Self::PlaceOrderRequest>>::Error:
-        From<<Self as CommonOpsService>::Error>,
+        From<<Self::PlaceOrderRequest as TryFrom<PlaceOrder>>::Error>,
     <Self as tower::Service<Self::CancelOrderRequest>>::Error:
-        From<<Self as CommonOpsService>::Error>,
+        From<<Self::CancelOrderRequest as TryFrom<CancelOrder>>::Error>,
     <Self as tower::Service<Self::CancelAllOrdersRequest>>::Error:
-        From<<Self as CommonOpsService>::Error>,
+        From<<Self::CancelAllOrdersRequest as TryFrom<CancelAllOrders>>::Error>,
     <Self as tower::Service<Self::GetBalanceRequest>>::Error:
-        From<<Self as CommonOpsService>::Error>,
+        From<<Self::GetBalanceRequest as TryFrom<GetBalance>>::Error>,
     <Self as tower::Service<Self::GetPositionRequest>>::Error:
-        From<<Self as CommonOpsService>::Error>,
+        From<<Self::GetPositionRequest as TryFrom<GetPosition>>::Error>,
 {
-    type Error;
-    type GetTradesRequest: TryFrom<GetTrades, Error = <Self as CommonOpsService>::Error>;
-    type GetOrderbookRequest: TryFrom<GetOrderbook, Error = <Self as CommonOpsService>::Error>;
-    type GetOrdersRequest: TryFrom<GetOrders, Error = <Self as CommonOpsService>::Error>;
-    type GetAllOrdersRequest: TryFrom<GetAllOrders, Error = <Self as CommonOpsService>::Error>;
-    type PlaceOrderRequest: TryFrom<PlaceOrder, Error = <Self as CommonOpsService>::Error>;
-    type CancelOrderRequest: TryFrom<CancelOrder, Error = <Self as CommonOpsService>::Error>;
-    type CancelAllOrdersRequest: TryFrom<CancelAllOrders, Error = <Self as CommonOpsService>::Error>;
-    type GetBalanceRequest: TryFrom<GetBalance, Error = <Self as CommonOpsService>::Error>;
-    type GetPositionRequest: TryFrom<GetPosition, Error = <Self as CommonOpsService>::Error>;
+    fn get_trades(&mut self, market: Market) -> BoxedServiceFuture<Self, Self::GetTradesRequest>;
+    fn get_orderbook(
+        &mut self,
+        market: Market,
+        ticks: Option<u64>,
+    ) -> BoxedServiceFuture<Self, Self::GetOrderbookRequest>;
+    fn get_orders(&mut self, market: Market) -> BoxedServiceFuture<Self, Self::GetOrdersRequest>;
+    fn get_all_orders(&mut self) -> BoxedServiceFuture<Self, Self::GetAllOrdersRequest>;
+    fn place_order(
+        &mut self,
+        market: Market,
+        order: Order,
+    ) -> BoxedServiceFuture<Self, Self::PlaceOrderRequest>;
+    fn cancel_order(
+        &mut self,
+        order_id: String,
+    ) -> BoxedServiceFuture<Self, Self::CancelOrderRequest>;
+    fn cancel_all_orders(&mut self) -> BoxedServiceFuture<Self, Self::CancelAllOrdersRequest>;
+    fn get_balance(
+        &mut self,
+        asset: Option<Asset>,
+    ) -> BoxedServiceFuture<Self, Self::GetBalanceRequest>;
+    fn get_position(
+        &mut self,
+        market: Market,
+    ) -> BoxedServiceFuture<Self, Self::GetPositionRequest>;
+}
 
+impl<T> CommonOpsService for T
+where
+    T: CommonOps
+        + tower::Service<Self::GetTradesRequest>
+        + tower::Service<Self::GetOrderbookRequest>
+        + tower::Service<Self::GetOrdersRequest>
+        + tower::Service<Self::GetAllOrdersRequest>
+        + tower::Service<Self::PlaceOrderRequest>
+        + tower::Service<Self::CancelOrderRequest>
+        + tower::Service<Self::CancelAllOrdersRequest>
+        + tower::Service<Self::GetBalanceRequest>
+        + tower::Service<Self::GetPositionRequest>,
+    <T as tower::Service<T::GetTradesRequest>>::Error:
+        From<<T::GetTradesRequest as TryFrom<GetTrades>>::Error>,
+    <T as tower::Service<T::GetOrderbookRequest>>::Error:
+        From<<T::GetOrderbookRequest as TryFrom<GetOrderbook>>::Error>,
+    <T as tower::Service<T::GetOrdersRequest>>::Error:
+        From<<T::GetOrdersRequest as TryFrom<GetOrders>>::Error>,
+    <T as tower::Service<T::GetAllOrdersRequest>>::Error:
+        From<<T::GetAllOrdersRequest as TryFrom<GetAllOrders>>::Error>,
+    <T as tower::Service<T::PlaceOrderRequest>>::Error:
+        From<<T::PlaceOrderRequest as TryFrom<PlaceOrder>>::Error>,
+    <T as tower::Service<T::CancelOrderRequest>>::Error:
+        From<<T::CancelOrderRequest as TryFrom<CancelOrder>>::Error>,
+    <T as tower::Service<T::CancelAllOrdersRequest>>::Error:
+        From<<T::CancelAllOrdersRequest as TryFrom<CancelAllOrders>>::Error>,
+    <T as tower::Service<T::GetBalanceRequest>>::Error:
+        From<<T::GetBalanceRequest as TryFrom<GetBalance>>::Error>,
+    <T as tower::Service<T::GetPositionRequest>>::Error:
+        From<<T::GetPositionRequest as TryFrom<GetPosition>>::Error>,
+{
     fn get_trades(&mut self, market: Market) -> BoxedServiceFuture<Self, Self::GetTradesRequest> {
         Box::pin(async move {
             self.ready_call(<Self::GetTradesRequest>::try_from(GetTrades { market })?)
@@ -303,3 +394,29 @@ where
         })
     }
 }
+
+macro_rules! impl_unsupported {
+    ($name:ident, $($others:ident$(,)?)* ) => {
+        impl From<$name> for $crate::common::Unsupported {
+            fn from(_: $name) -> Self {
+                panic!("Unsupported request type");
+            }
+        }
+
+        impl_unsupported!($($others ,)*);
+    };
+
+    () => {}
+}
+
+impl_unsupported!(
+    GetTrades,
+    GetOrderbook,
+    GetOrders,
+    GetAllOrders,
+    PlaceOrder,
+    CancelOrder,
+    CancelAllOrders,
+    GetBalance,
+    GetPosition,
+);

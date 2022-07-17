@@ -17,7 +17,10 @@ use sha2::Sha256;
 use thiserror::Error;
 use tracing::trace;
 
-use crate::{common, define_layer};
+use crate::{
+    common::{self, CommonOps, Unsupported},
+    define_layer,
+};
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -379,20 +382,40 @@ impl<R> Signer<Request<R>> for () {
     }
 }
 
-impl From<common::GetTrades> for Request<GetApiV3Trades> {
+impl From<common::GetTrades> for GetApiV3Trades {
     fn from(x: common::GetTrades) -> Self {
-        Request(GetApiV3Trades {
+        GetApiV3Trades {
             symbol: format!("{}{}", x.market.base(), x.market.quote()),
             limit: None,
-        })
+        }
     }
 }
 
-impl From<common::GetOrderbook> for Request<GetApiV3Depth> {
+impl From<common::GetOrderbook> for GetApiV3Depth {
     fn from(x: common::GetOrderbook) -> Self {
-        Request(GetApiV3Depth {
+        GetApiV3Depth {
             symbol: format!("{}{}", x.market.base(), x.market.quote()),
             limit: x.ticks,
-        })
+        }
     }
+}
+
+impl<S> CommonOps for BinanceService<S> {
+    type GetTradesRequest = GetApiV3Trades;
+
+    type GetOrderbookRequest = GetApiV3Depth;
+
+    type GetOrdersRequest = Unsupported;
+
+    type GetAllOrdersRequest = Unsupported;
+
+    type PlaceOrderRequest = Unsupported;
+
+    type CancelOrderRequest = Unsupported;
+
+    type CancelAllOrdersRequest = Unsupported;
+
+    type GetBalanceRequest = Unsupported;
+
+    type GetPositionRequest = Unsupported;
 }

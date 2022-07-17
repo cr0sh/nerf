@@ -1,6 +1,6 @@
 use hyper_tls::HttpsConnector;
 use nerf::HyperLayer;
-use nerf_exchanges::{binance, ReadyCall};
+use nerf_exchanges::{binance, common::CommonOpsService, ReadyCall};
 use rust_decimal::Decimal;
 
 #[tokio::main]
@@ -43,6 +43,10 @@ async fn main() -> Result<(), anyhow::Error> {
             new_order_resp_type: None,
         })
         .await?;
+    tracing::info!("Result: {:#?}", result);
+
+    let result = svc.get_trades("spot:BTC/USDT".parse().unwrap()).await?;
+
     tracing::info!("Result: {:#?}", result);
 
     Ok(())

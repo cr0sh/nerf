@@ -1,6 +1,6 @@
 //! Interoperability between [`hyper::Client`]s.
 
-use std::{future::Future, marker::PhantomData, task::Poll};
+use std::{convert::Infallible, future::Future, marker::PhantomData, task::Poll};
 
 // To avoid ambiguity, avoid importing items under `hyper` namespace as possible.
 use hyper::client::ResponseFuture;
@@ -20,6 +20,12 @@ pub enum HyperInteropError<E> {
     RequestFailed(http::StatusCode, String),
     #[error(transparent)]
     ConversionFailed(E), // Conversion of request or response failed
+}
+
+impl<E> From<Infallible> for HyperInteropError<E> {
+    fn from(x: Infallible) -> Self {
+        match x {}
+    }
 }
 
 pub struct HyperLayer(());

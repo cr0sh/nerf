@@ -165,10 +165,10 @@ macro_rules! define_layer {
             inner: S,
         }
 
-        impl<S, R> tower::Service<R> for $service<S>
+        impl<S, R> ::tower::Service<R> for $service<S>
         where
-            S: tower::Service<Request<R>, Response = Response<R::Response>>,
-            R: nerf::Request,
+            S: ::tower::Service<Request<R>, Response = Response<R::Response>>,
+            R: ::nerf::Request,
         {
             type Response = R::Response;
 
@@ -202,6 +202,25 @@ macro_rules! define_layer {
                 cx: &mut ::std::task::Context<'_>,
             ) -> ::std::task::Poll<Self::Output> {
                 self.project().0.poll(cx).map(|x| x.map(|Response(x)| x))
+            }
+        }
+
+        impl<S> ::tower::Service<$crate::common::Unsupported> for $service<S> {
+            type Response = ::std::convert::Infallible;
+
+            type Error = ::std::convert::Infallible;
+
+            type Future = $crate::common::Unsupported;
+
+            fn poll_ready(
+                &mut self,
+                _cx: &mut ::std::task::Context<'_>,
+            ) -> ::std::task::Poll<Result<(), Self::Error>> {
+                ::std::task::Poll::Ready(Ok(()))
+            }
+
+            fn call(&mut self, req: $crate::common::Unsupported) -> Self::Future {
+                match req {}
             }
         }
     };
