@@ -318,6 +318,7 @@ pub struct GetApiV3AccountBalanceItem {
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize)]
 #[post("https://api.binance.com/api/v3/order", response = PostApiV3OrderResponse, signer = BinanceSigner)]
+#[serde(rename_all = "camelCase")]
 pub struct PostApiV3Order {
     pub symbol: String,
     pub side: Side,
