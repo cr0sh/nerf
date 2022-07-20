@@ -7,7 +7,7 @@ use syn::{
     parse::{Parse, ParseStream},
     parse_macro_input,
     spanned::Spanned,
-    LitStr, Token,
+    LitBool, LitStr, Token,
 };
 
 use crate::{NamedItem, PunctuatedExt};
@@ -16,6 +16,7 @@ struct HttpAttr {
     endpoint: LitStr,
     response: Ident,
     signer: Option<Ident>,
+    shim: Option<LitBool>,
 }
 
 impl Parse for HttpAttr {
@@ -51,6 +52,15 @@ impl Parse for HttpAttr {
                 }
             })?
             .cloned();
+        let shim = attrs
+            .find_at_most_once(|x| {
+                if let HttpAttrKind::Shim(x) = x {
+                    Some(x)
+                } else {
+                    None
+                }
+            })?
+            .cloned();
 
         endpoint.value().parse::<http::uri::Uri>().map_err(|e| {
             syn::Error::new(
@@ -63,6 +73,7 @@ impl Parse for HttpAttr {
             endpoint,
             response,
             signer,
+            shim,
         })
     }
 }
@@ -71,6 +82,7 @@ enum HttpAttrKind {
     Endpoint(LitStr),
     Response(Ident),
     Signer(Ident),
+    Shim(LitBool),
 }
 
 impl Parse for HttpAttrKind {
@@ -94,6 +106,12 @@ impl Parse for HttpAttrKind {
                     .map_err(|e| syn::Error::new(e.span(), "expected `=`"))?;
                 Ok(HttpAttrKind::Signer(input.parse()?))
             }
+            "shim" => {
+                input
+                    .parse::<Token![=]>()
+                    .map_err(|e| syn::Error::new(e.span(), "expected `=`"))?;
+                Ok(HttpAttrKind::Shim(input.parse()?))
+            }
             other => Err(syn::Error::new(
                 key.span(),
                 format!("unexpected key {other}"),
@@ -108,6 +126,7 @@ impl Spanned for HttpAttrKind {
             HttpAttrKind::Endpoint(x) => x.span(),
             HttpAttrKind::Response(x) => x.span(),
             HttpAttrKind::Signer(x) => x.span(),
+            HttpAttrKind::Shim(x) => x.span(),
         }
     }
 }
@@ -156,6 +175,7 @@ pub fn entrypoint(
         endpoint,
         response,
         signer,
+        shim,
     } = parse_macro_input!(attr as HttpAttr);
     let item_ = item.clone();
     let NamedItem { ident } = parse_macro_input!(item_ as NamedItem);
@@ -168,6 +188,7 @@ pub fn entrypoint(
     };
 
     let signer = signer.map(|x| quote! { #x }).unwrap_or(quote! { () });
+    let shim = shim.as_ref().map(LitBool::value).unwrap_or(true);
 
     if endpoint.value().contains("{}") {
         return syn::Error::new(endpoint.span(), "endpoint must not contain `{}`\nIf you meant a place for format arguments, use `:field_name` instead")
@@ -194,19 +215,23 @@ pub fn entrypoint(
         }
     };
 
-    let request_shim_impl = quote! {
-        impl<T> ::core::convert::TryFrom<#ident> for Request<T>
-        where
-            T: ::core::convert::TryFrom<Request<#ident>>,
-        {
-            type Error = <T as ::core::convert::TryFrom<Request<#ident>>>::Error;
+    let request_shim_impl = if shim {
+        quote! {
+            impl<T> ::core::convert::TryFrom<#ident> for Request<T>
+            where
+                T: ::core::convert::TryFrom<Request<#ident>>,
+            {
+                type Error = <T as ::core::convert::TryFrom<Request<#ident>>>::Error;
 
-            fn try_from(
-                value: #ident,
-            ) -> Result<Self, <Self as ::core::convert::TryFrom<#ident>>::Error> {
-                ::core::convert::TryFrom::try_from(Request(value)).map(Request)
+                fn try_from(
+                    value: #ident,
+                ) -> Result<Self, <Self as ::core::convert::TryFrom<#ident>>::Error> {
+                    ::core::convert::TryFrom::try_from(Request(value)).map(Request)
+                }
             }
         }
+    } else {
+        proc_macro2::TokenStream::new()
     };
 
     quote! {

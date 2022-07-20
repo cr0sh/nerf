@@ -114,7 +114,7 @@ pub fn request(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// with [`serde_urlencoded`](https://docs.rs/serde_urlencoded).
 ///
 /// - Endpoint is required with string literal.
-/// - The type given must implement `Serialize`, and response type must implement `Deserialize`.
+/// - Setting `shim = false` will skip `impl TryFrom` for `Request` newtype.
 ///
 /// # Example
 ///
@@ -131,7 +131,7 @@ pub fn get(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// Attribute macro to implement (`Request` or `JsonRequest`) and `HttpRequest` with POST method.
 ///
 /// - Endpoint is required with string literal.
-/// - The type given must implement `Serialize`, and response type must implement `Deserialize`.
+/// - Setting `shim = false` will skip `impl TryFrom` for `Request` newtype.
 ///
 /// # Example
 ///
@@ -148,10 +148,7 @@ pub fn post(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// Attribute macro to implement (`Request` or `JsonRequest`) and `HttpRequest` with PUT method.
 ///
 /// - Endpoint is required with string literal.
-/// - The type given must implement `Serialize`, and response type must implement `Deserialize`.
-///
-/// Setting `json = true` implements `JsonRequest` and `json = false` implements `Request`(hence implies `#[request]`).
-/// If unset, default is `json = true`.
+/// - Setting `shim = false` will skip `impl TryFrom` for `Request` newtype.
 ///
 /// # Example
 ///
@@ -168,10 +165,7 @@ pub fn put(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// Attribute macro to implement (`Request` or `JsonRequest`) and `HttpRequest` with DELETE method.
 ///
 /// - Endpoint is required with string literal.
-/// - The type given must implement `Serialize`, and response type must implement `Deserialize`.
-///
-/// Setting `json = true` implements `JsonRequest` and `json = false` implements `Request`(hence implies `#[request]`).
-/// If unset, default is `json = true`.
+/// - Setting `shim = false` will skip `impl TryFrom` for `Request` newtype.
 ///
 /// # Example
 ///
