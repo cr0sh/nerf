@@ -1,6 +1,6 @@
 use hyper_tls::HttpsConnector;
-use nerf::HyperLayer;
-use nerf_exchanges::{binance, common::CommonOpsService, ReadyCall};
+use nerf::{HyperLayer, ReadyCall};
+use nerf_exchanges::{binance, common::CommonOpsService};
 use rust_decimal::Decimal;
 
 #[tokio::main]

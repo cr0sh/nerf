@@ -7,9 +7,8 @@ use std::{
 use chrono::{serde::ts_milliseconds, DateTime, Utc};
 use hmac::{Hmac, Mac};
 use hyper::body::Buf;
-use nerf::{http::StatusCode, Signer, TryIntoResponse};
+use nerf::{define_layer, http::StatusCode, Signer, TryIntoResponse};
 use nerf_macros::{get, post};
-use pin_project::pin_project;
 use rust_decimal::Decimal;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -17,10 +16,7 @@ use sha2::Sha256;
 use thiserror::Error;
 use tracing::trace;
 
-use crate::{
-    common::{self, CommonOps, Unsupported},
-    define_layer,
-};
+use crate::common::{self, CommonOps, Unsupported};
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -501,4 +497,23 @@ impl<S> CommonOps for BinanceService<S> {
     type GetBalanceRequest = GetApiV3Account;
 
     type GetPositionRequest = Unsupported;
+}
+
+impl<S> tower::Service<Unsupported> for BinanceService<S> {
+    type Response = ::std::convert::Infallible;
+
+    type Error = ::std::convert::Infallible;
+
+    type Future = Unsupported;
+
+    fn poll_ready(
+        &mut self,
+        _cx: &mut ::std::task::Context<'_>,
+    ) -> ::std::task::Poll<Result<(), Self::Error>> {
+        ::std::task::Poll::Ready(Ok(()))
+    }
+
+    fn call(&mut self, req: Unsupported) -> Self::Future {
+        match req {}
+    }
 }

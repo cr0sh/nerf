@@ -1,16 +1,21 @@
 #![warn(clippy::print_stderr, clippy::print_stdout)]
 //! nerf is a toolkit to create client-side SDK for (mainly) HTTP endpoint APIs.
 
+mod define_layer;
 mod error;
 mod hyper_interop;
+mod ready_call;
+
 use std::future::Future;
 
 pub use hyper_interop::HyperLayer;
+pub use ready_call::ReadyCall;
 
 pub use bytes::Bytes;
 pub use error::Error;
 pub use http;
 pub use nerf_macros::rate_limited;
+pub use pin_project::pin_project;
 pub use serde;
 pub use serde_json;
 

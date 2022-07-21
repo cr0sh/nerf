@@ -83,6 +83,7 @@ where
 /// # Example
 ///
 /// ```
+/// # use nerf_macros::rate_limited;
 /// #[rate_limited(weight = 10)]
 /// struct MyRequest {
 ///     params: String,
@@ -98,6 +99,7 @@ pub fn rate_limited(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// # Example
 ///
 /// ```
+/// # use nerf_macros::request;
 /// #[request(response = MyResponse)]
 /// struct MyRequest {
 ///     params: String,
@@ -119,7 +121,8 @@ pub fn request(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// # Example
 ///
 /// ```
-/// #[get("https://ifconfig.me", response = IfconfigResponse)]
+/// # use nerf_macros::get;
+/// #[get("https://ifconfig.me", response = IfconfigResponse, shim = false)]
 /// struct Ifconfig;
 /// struct IfconfigResponse;
 /// ```
@@ -136,7 +139,8 @@ pub fn get(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// # Example
 ///
 /// ```
-/// #[post("https://ifconfig.me", response = IfconfigResponse)]
+/// # use nerf_macros::post;
+/// #[post("https://ifconfig.me", response = IfconfigResponse, shim = false)]
 /// struct Ifconfig;
 /// struct IfconfigResponse;
 /// ```
@@ -153,7 +157,8 @@ pub fn post(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// # Example
 ///
 /// ```
-/// #[put("https://ifconfig.me", response = IfconfigResponse)]
+/// # use nerf_macros::put;
+/// #[put("https://ifconfig.me", response = IfconfigResponse, shim = false)]
 /// struct Ifconfig;
 /// struct IfconfigResponse;
 /// ```
@@ -170,7 +175,8 @@ pub fn put(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// # Example
 ///
 /// ```
-/// #[delete("https://ifconfig.me", response = IfconfigResponse)]
+/// # use nerf_macros::delete;
+/// #[delete("https://ifconfig.me", response = IfconfigResponse, shim = false)]
 /// struct Ifconfig;
 /// struct IfconfigResponse;
 /// ```
