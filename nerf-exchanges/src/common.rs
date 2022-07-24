@@ -5,7 +5,7 @@ use std::{convert::Infallible, future::Future, pin::Pin, str::FromStr};
 use rust_decimal::Decimal;
 use thiserror::Error;
 
-use nerf::ReadyCall;
+use nerf::{AsService, ReadyCall};
 
 pub type Asset = String;
 
@@ -259,6 +259,25 @@ impl Future for Unsupported {
     }
 }
 
+impl<'a, T> tower::Service<Unsupported> for AsService<'a, T> {
+    type Response = Infallible;
+
+    type Error = Infallible;
+
+    type Future = Unsupported;
+
+    fn poll_ready(
+        &mut self,
+        _cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<(), Self::Error>> {
+        panic!("Unsupported request type")
+    }
+
+    fn call(&mut self, req: Unsupported) -> Self::Future {
+        match req {}
+    }
+}
+
 pub trait CommonOps {
     type GetTradesRequest: TryFrom<GetTrades>;
     type GetOrderbookRequest: TryFrom<GetOrderbook>;
@@ -269,6 +288,29 @@ pub trait CommonOps {
     type CancelAllOrdersRequest: TryFrom<CancelAllOrders>;
     type GetBalanceRequest: TryFrom<GetBalance>;
     type GetPositionRequest: TryFrom<GetPosition>;
+}
+
+impl<'a, T> CommonOps for AsService<'a, T>
+where
+    T: CommonOps,
+{
+    type GetTradesRequest = <T as CommonOps>::GetTradesRequest;
+
+    type GetOrderbookRequest = <T as CommonOps>::GetOrderbookRequest;
+
+    type GetOrdersRequest = <T as CommonOps>::GetOrdersRequest;
+
+    type GetAllOrdersRequest = <T as CommonOps>::GetAllOrdersRequest;
+
+    type PlaceOrderRequest = <T as CommonOps>::PlaceOrderRequest;
+
+    type CancelOrderRequest = <T as CommonOps>::CancelOrderRequest;
+
+    type CancelAllOrdersRequest = <T as CommonOps>::CancelAllOrdersRequest;
+
+    type GetBalanceRequest = <T as CommonOps>::GetBalanceRequest;
+
+    type GetPositionRequest = <T as CommonOps>::GetPositionRequest;
 }
 
 /// Constraints to ensure that a service support [`tower::Service`] for common requests

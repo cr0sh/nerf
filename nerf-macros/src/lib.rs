@@ -3,6 +3,7 @@ extern crate proc_macro;
 mod http;
 mod rate_limited;
 mod request;
+mod tag;
 
 use proc_macro::TokenStream;
 use proc_macro2::Ident;
@@ -183,4 +184,12 @@ pub fn put(attr: TokenStream, item: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn delete(attr: TokenStream, item: TokenStream) -> TokenStream {
     http::entrypoint(attr, item, quote! { ::nerf::http::Method::GET })
+}
+
+/// Attribute macro to add a 'tag' to a type.
+///
+/// `#[tag(Foo = Bar)]` is transpiled into `impl Foo for TheType { type Foo = Bar; } `
+#[proc_macro_attribute]
+pub fn tag(attr: TokenStream, item: TokenStream) -> TokenStream {
+    tag::tag(attr, item)
 }
