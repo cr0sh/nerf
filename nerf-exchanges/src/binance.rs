@@ -8,8 +8,7 @@ use std::{
 use chrono::{serde::ts_milliseconds, DateTime, Utc};
 use hmac::{Hmac, Mac};
 use hyper::body::Buf;
-use nerf::{http::StatusCode, Client, HttpRequest, Request};
-use nerf_macros::{get, post, tag};
+use nerf::{get, http::StatusCode, post, tag, Client, HttpRequest, Request};
 use rust_decimal::Decimal;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_with::skip_serializing_none;

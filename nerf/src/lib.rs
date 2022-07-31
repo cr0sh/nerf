@@ -2,11 +2,13 @@
 //! nerf is a toolkit to create client-side SDK for (mainly) HTTP endpoint APIs.
 
 mod error;
+mod macro_reexport;
 mod ready_call;
 
 use std::future::Future;
 use std::pin::Pin;
 
+pub use macro_reexport::*;
 pub use ready_call::ReadyCall;
 
 pub use bytes::Bytes;

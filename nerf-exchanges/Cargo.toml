@@ -9,7 +9,6 @@ edition = "2021"
 serde = { version = "1.0.137", features = ["derive"] }
 serde_with = "1.14.0"
 nerf = { version = "0.1", path = "../nerf" }
-nerf-macros = { version = "0.1", path = "../nerf-macros" }
 rust_decimal = "1.25.0"
 hyper = "0.14.19"
 thiserror = "1.0.31"
@@ -29,7 +28,6 @@ tokio = { version = "1.19.2", features = ["macros", "rt-multi-thread"] }
 tracing = "0.1.35"
 tracing-subscriber = { version = "0.3.11", features = ["env-filter"] }
 hyper-tls = "0.5.0"
-nerf = { path = "../nerf" }
 criterion = "0.3.6"
 
 [[bench]]
