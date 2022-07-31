@@ -8,7 +8,7 @@ use std::{
 use chrono::{serde::ts_milliseconds, DateTime, Utc};
 use hmac::{Hmac, Mac};
 use hyper::body::Buf;
-use nerf::{get, http::StatusCode, post, tag, Client, HttpRequest, Request};
+use nerf::{delete, get, http::StatusCode, post, tag, Client, HttpRequest, Request};
 use rust_decimal::Decimal;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -257,6 +257,26 @@ pub struct GetApiV3OpenOrdersResponseItem {
     pub orig_quote_order_qty: Decimal,
 }
 
+#[derive(Clone, Debug, Serialize)]
+#[delete("https://api.binance.com/api/v3/order", response = DeleteApiV3OrdersResponse)]
+#[tag(Signer = UserDataSigner)]
+#[serde(rename_all = "camelCase")]
+pub struct DeleteApiV3Orders {
+    pub symbol: String,
+    pub order_id: Option<u64>,
+    pub orig_client_order_id: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeleteApiV3OrdersResponse {
+    pub symbol: String,
+    pub order_id: u64,
+    pub orig_client_order_id: String,
+    pub status: String,
+    // TODO: Implement other fields
+}
+
 impl From<common::GetTrades> for GetApiV3Trades {
     fn from(x: common::GetTrades) -> Self {
         GetApiV3Trades {
@@ -317,6 +337,16 @@ impl From<common::PlaceOrder> for PostApiV3Order {
 impl From<common::GetBalance> for GetApiV3Account {
     fn from(_: common::GetBalance) -> Self {
         GetApiV3Account {} // FIXME: GetBalance.asset is ignored
+    }
+}
+
+impl From<common::CancelOrder> for DeleteApiV3Orders {
+    fn from(x: common::CancelOrder) -> Self {
+        Self {
+            symbol: format!("{}{}", x.market.base(), x.market.quote()),
+            order_id: Some(x.order_id.parse().expect("Cannot parse order_id")),
+            orig_client_order_id: None,
+        }
     }
 }
 
@@ -585,7 +615,7 @@ impl<S> CommonOps for BinancePrivateClient<S> {
 
     type PlaceOrderRequest = PostApiV3Order;
 
-    type CancelOrderRequest = Unsupported;
+    type CancelOrderRequest = DeleteApiV3Orders;
 
     type CancelAllOrdersRequest = Unsupported;
 

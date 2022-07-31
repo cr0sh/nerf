@@ -218,6 +218,7 @@ pub struct PlaceOrder {
 
 #[derive(Debug)]
 pub struct CancelOrder {
+    pub market: Market,
     pub order_id: String, // TODO: decide type
 }
 
@@ -360,6 +361,7 @@ where
     ) -> BoxedServiceFuture<Self, Self::PlaceOrderRequest>;
     fn cancel_order(
         &mut self,
+        market: Market,
         order_id: String,
     ) -> BoxedServiceFuture<Self, Self::CancelOrderRequest>;
     fn cancel_all_orders(&mut self) -> BoxedServiceFuture<Self, Self::CancelAllOrdersRequest>;
@@ -450,10 +452,12 @@ where
     }
     fn cancel_order(
         &mut self,
+        market: Market,
         order_id: String,
     ) -> BoxedServiceFuture<Self, Self::CancelOrderRequest> {
         Box::pin(async move {
             self.ready_call(<Self::CancelOrderRequest>::try_from(CancelOrder {
+                market,
                 order_id,
             })?)
             .await
