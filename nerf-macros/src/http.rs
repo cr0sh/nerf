@@ -7,16 +7,40 @@ use syn::{
     parse::{Parse, ParseStream},
     parse_macro_input,
     spanned::Spanned,
-    LitBool, LitStr, Token,
+    LitBool, LitStr, Path, Token,
 };
 
 use crate::{NamedItem, PunctuatedExt};
 
+#[derive(Clone, Debug)]
+enum Shim {
+    Bool(LitBool),
+    Path(Path),
+}
+
+impl Parse for Shim {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        if input.lookahead1().peek(LitBool) {
+            input.parse().map(Self::Bool)
+        } else {
+            input.parse().map(Self::Path)
+        }
+    }
+}
+
+impl Spanned for Shim {
+    fn span(&self) -> proc_macro2::Span {
+        match self {
+            Shim::Bool(x) => x.span(),
+            Shim::Path(x) => x.span(),
+        }
+    }
+}
+
 struct HttpAttr {
     endpoint: LitStr,
     response: Ident,
-    signer: Option<Ident>,
-    shim: Option<LitBool>,
+    shim: Option<Shim>,
 }
 
 impl Parse for HttpAttr {
@@ -43,15 +67,6 @@ impl Parse for HttpAttr {
             })?
             .ok_or_else(|| syn::Error::new(input.span(), "response is required"))?
             .clone();
-        let signer = attrs
-            .find_at_most_once(|x| {
-                if let HttpAttrKind::Signer(x) = x {
-                    Some(x)
-                } else {
-                    None
-                }
-            })?
-            .cloned();
         let shim = attrs
             .find_at_most_once(|x| {
                 if let HttpAttrKind::Shim(x) = x {
@@ -72,7 +87,6 @@ impl Parse for HttpAttr {
         Ok(HttpAttr {
             endpoint,
             response,
-            signer,
             shim,
         })
     }
@@ -82,7 +96,7 @@ enum HttpAttrKind {
     Endpoint(LitStr),
     Response(Ident),
     Signer(Ident),
-    Shim(LitBool),
+    Shim(Shim),
 }
 
 impl Parse for HttpAttrKind {
@@ -174,21 +188,25 @@ pub fn entrypoint(
     let HttpAttr {
         endpoint,
         response,
-        signer,
-        shim,
+        shim: _shim,
     } = parse_macro_input!(attr as HttpAttr);
     let item_ = item.clone();
     let NamedItem { ident } = parse_macro_input!(item_ as NamedItem);
     let item = proc_macro2::TokenStream::from(item);
 
-    let request_impl = quote! {
-        impl ::nerf::Request for #ident {
-            type Response = #response;
-        }
-    };
+    // let shim = match shim {
+    //     Some(Shim::Bool(bool)) => {
+    //         if bool.value {
+    //             return syn::Error::new(bool.span(), "attribute parameter `shim` cannot be `true`")
+    //                 .into_compile_error()
+    //                 .into();
+    //         }
 
-    let signer = signer.map(|x| quote! { #x }).unwrap_or(quote! { () });
-    let shim = shim.as_ref().map(LitBool::value).unwrap_or(true);
+    //         None
+    //     }
+    //     Some(Shim::Path(path)) => Some(path.to_token_stream()),
+    //     None => Some(quote! { __private }),
+    // };
 
     if endpoint.value().contains("{}") {
         return syn::Error::new(endpoint.span(), "endpoint must not contain `{}`\nIf you meant a place for format arguments, use `:field_name` instead")
@@ -203,9 +221,14 @@ pub fn entrypoint(
         format!(#sub, #(#args),*)
     };
 
-    let http_request_impl = quote! {
+    quote! {
+        #item
+
+        impl ::nerf::Request for #ident {
+            type Response = #response;
+        }
+
         impl ::nerf::HttpRequest for #ident {
-            type Signer = #signer;
             fn method(&self) -> ::nerf::http::Method {
                 #method
             }
@@ -213,35 +236,8 @@ pub fn entrypoint(
                 #endpoint.parse().expect("proc-macro attribute `endpoint` is an invalid HTTP URI")
             }
         }
-    };
 
-    let request_shim_impl = if shim {
-        quote! {
-            impl<T> ::core::convert::TryFrom<#ident> for Request<T>
-            where
-                T: ::core::convert::TryFrom<Request<#ident>>,
-            {
-                type Error = <T as ::core::convert::TryFrom<Request<#ident>>>::Error;
-
-                fn try_from(
-                    value: #ident,
-                ) -> Result<Self, <Self as ::core::convert::TryFrom<#ident>>::Error> {
-                    ::core::convert::TryFrom::try_from(Request(value)).map(Request)
-                }
-            }
-        }
-    } else {
-        proc_macro2::TokenStream::new()
-    };
-
-    quote! {
-        #item
-
-        #request_impl
-
-        #http_request_impl
-
-        #request_shim_impl
+        impl Sealed for #ident {}
     }
     .into()
 }

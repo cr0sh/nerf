@@ -1,6 +1,9 @@
 use hyper_tls::HttpsConnector;
-use nerf::{HyperLayer, ReadyCall};
-use nerf_exchanges::{binance, common::CommonOpsService};
+use nerf::{IntoService, ReadyCall};
+use nerf_exchanges::{
+    binance::{self, Authentication, BinanceClient},
+    common::CommonOpsService,
+};
 use rust_decimal::Decimal;
 
 #[tokio::main]
@@ -11,11 +14,11 @@ async fn main() -> Result<(), anyhow::Error> {
     let secret = std::env::var("BINANCE_API_SECRET").unwrap();
 
     let mut svc = tower::ServiceBuilder::new()
-        .layer(binance::BinanceLayer::new())
-        .layer(nerf_exchanges::HttpSignLayer::new(
-            binance::Authentication::new(key, secret),
-        ))
-        .layer(HyperLayer::new())
+        .layer_fn(|svc| {
+            BinanceClient::new(svc)
+                .with_auth(Authentication::new(key.clone(), secret.clone()))
+                .into_service()
+        })
         .service(hyper::Client::builder().build(HttpsConnector::new()));
 
     let result = svc

@@ -1,20 +1,20 @@
 #![cfg(test)]
 
-use std::{future::Future, io::Read, pin::Pin, sync::Arc};
+use std::{error::Error, fmt::Debug, future::Future, io::Read, pin::Pin, sync::Arc};
 
 use axum::{routing, Extension, Json};
 use bytes::Buf;
 use dashmap::DashMap;
 use http::Method;
 use http_body::Body;
-use nerf::{define_layer, HyperLayer, ReadyCall, TryIntoResponse};
+use nerf::{Client, HttpRequest, IntoService, ReadyCall, Request};
 use nerf_macros::{get, put};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tokio_stream::wrappers::ReceiverStream;
 use tower::ServiceExt;
 use tracing::{debug, trace};
 
-define_layer!(TestLayer, TestService, TestError, TestFuture);
+use self::__private::Sealed;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 struct Item {
@@ -39,46 +39,49 @@ struct PutItem(Item);
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 struct PutItemResponse;
 
-impl<T> TryFrom<Request<T>> for hyper::Request<hyper::Body>
-where
-    T: nerf::Request + nerf::HttpRequest + Serialize,
-{
-    type Error = Box<dyn std::error::Error>;
+struct LocalTestClient<S> {
+    inner: S,
+}
 
-    fn try_from(value: Request<T>) -> Result<Self, Self::Error> {
-        let req = value.0;
-        let uri = req.uri();
-        if req.method() == Method::GET {
+impl<T, S> Client<T> for LocalTestClient<S>
+where
+    T: Request + HttpRequest + Sealed + Serialize + Debug,
+    T::Response: DeserializeOwned,
+{
+    type Service = S;
+
+    type Error = Box<dyn Error>;
+
+    type TryFromResponseFuture = Pin<Box<dyn Future<Output = Result<T::Response, Self::Error>>>>;
+
+    fn service(&mut self) -> &mut Self::Service {
+        &mut self.inner
+    }
+
+    fn try_into_request(&mut self, x: T) -> Result<hyper::Request<hyper::Body>, Self::Error> {
+        let uri = x.uri();
+        if x.method() == Method::GET {
             Ok(hyper::Request::builder()
                 .uri(format!("{uri}"))
-                .method(req.method())
+                .method(x.method())
                 .header("Content-Type", "application/json")
                 .body(hyper::Body::empty())
                 .unwrap())
         } else {
             Ok(hyper::Request::builder()
                 .uri(format!("{uri}"))
-                .method(req.method())
+                .method(x.method())
                 .header("Content-Type", "application/json")
-                .body(hyper::Body::from(serde_json::to_vec(&req).unwrap()))
+                .body(hyper::Body::from(serde_json::to_vec(&x).unwrap()))
                 .unwrap())
         }
     }
-}
 
-impl<T> TryIntoResponse<Response<T>> for hyper::Response<hyper::Body>
-where
-    T: DeserializeOwned,
-{
-    type Error = Box<dyn std::error::Error>;
-
-    type Future = Pin<Box<dyn Future<Output = Result<Response<T>, Self::Error>>>>;
-
-    fn try_into_response(self) -> Self::Future {
-        debug!(status = ?self.status());
+    fn try_from_response(x: hyper::Response<hyper::Body>) -> Self::TryFromResponseFuture {
+        debug!(status = ?x.status());
         Box::pin(async move {
             let mut s = String::new();
-            hyper::body::aggregate(self)
+            hyper::body::aggregate(x)
                 .await
                 .unwrap()
                 .reader()
@@ -86,7 +89,7 @@ where
                 .unwrap();
             trace!(response_str = s);
             let resp = serde_json::from_str(&s).unwrap();
-            Ok(Response(resp))
+            Ok(resp)
         })
     }
 }
@@ -139,8 +142,7 @@ async fn test() {
     tracing_subscriber::fmt::init();
 
     let mut client = tower::ServiceBuilder::new()
-        .layer(TestLayer::new())
-        .layer(HyperLayer::new())
+        .layer_fn(|svc| (LocalTestClient { inner: svc }).into_service())
         .service(create_service());
     assert_eq!(client.ready_call(GetItems).await.unwrap().0.as_slice(), &[]);
     let item = Item {
@@ -156,4 +158,8 @@ async fn test() {
         client.ready_call(GetItems).await.unwrap().0.as_slice(),
         &[item]
     );
+}
+
+mod __private {
+    pub trait Sealed {}
 }

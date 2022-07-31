@@ -3,6 +3,7 @@ extern crate proc_macro;
 mod http;
 mod rate_limited;
 mod request;
+mod tag;
 
 use proc_macro::TokenStream;
 use proc_macro2::Ident;
@@ -122,7 +123,8 @@ pub fn request(attr: TokenStream, item: TokenStream) -> TokenStream {
 ///
 /// ```
 /// # use nerf_macros::get;
-/// #[get("https://ifconfig.me", response = IfconfigResponse, shim = false)]
+/// # trait Sealed {}
+/// #[get("https://ifconfig.me", response = IfconfigResponse)]
 /// struct Ifconfig;
 /// struct IfconfigResponse;
 /// ```
@@ -140,7 +142,8 @@ pub fn get(attr: TokenStream, item: TokenStream) -> TokenStream {
 ///
 /// ```
 /// # use nerf_macros::post;
-/// #[post("https://ifconfig.me", response = IfconfigResponse, shim = false)]
+/// # trait Sealed {}
+/// #[post("https://ifconfig.me", response = IfconfigResponse)]
 /// struct Ifconfig;
 /// struct IfconfigResponse;
 /// ```
@@ -158,7 +161,8 @@ pub fn post(attr: TokenStream, item: TokenStream) -> TokenStream {
 ///
 /// ```
 /// # use nerf_macros::put;
-/// #[put("https://ifconfig.me", response = IfconfigResponse, shim = false)]
+/// # trait Sealed {}
+/// #[put("https://ifconfig.me", response = IfconfigResponse)]
 /// struct Ifconfig;
 /// struct IfconfigResponse;
 /// ```
@@ -176,11 +180,20 @@ pub fn put(attr: TokenStream, item: TokenStream) -> TokenStream {
 ///
 /// ```
 /// # use nerf_macros::delete;
-/// #[delete("https://ifconfig.me", response = IfconfigResponse, shim = false)]
+/// # trait Sealed {}
+/// #[delete("https://ifconfig.me", response = IfconfigResponse)]
 /// struct Ifconfig;
 /// struct IfconfigResponse;
 /// ```
 #[proc_macro_attribute]
 pub fn delete(attr: TokenStream, item: TokenStream) -> TokenStream {
     http::entrypoint(attr, item, quote! { ::nerf::http::Method::GET })
+}
+
+/// Attribute macro to add a 'tag' to a type.
+///
+/// `#[tag(Foo = Bar)]` is transpiled into `impl Foo for TheType { type Foo = Bar; } `
+#[proc_macro_attribute]
+pub fn tag(attr: TokenStream, item: TokenStream) -> TokenStream {
+    tag::tag(attr, item)
 }
