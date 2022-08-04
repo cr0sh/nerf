@@ -234,9 +234,7 @@ pub struct CancelOrder {
 pub struct CancelAllOrders;
 
 #[derive(Debug)]
-pub struct GetBalance {
-    pub asset: Option<Asset>,
-}
+pub struct GetBalance;
 
 #[derive(Debug)]
 pub struct GetPosition {
@@ -376,10 +374,7 @@ where
         order_id: String,
     ) -> BoxedServiceFuture<Self, Self::CancelOrderRequest>;
     fn cancel_all_orders(&mut self) -> BoxedServiceFuture<Self, Self::CancelAllOrdersRequest>;
-    fn get_balance(
-        &mut self,
-        asset: Option<Asset>,
-    ) -> BoxedServiceFuture<Self, Self::GetBalanceRequest>;
+    fn get_balance(&mut self) -> BoxedServiceFuture<Self, Self::GetBalanceRequest>;
     fn get_position(
         &mut self,
         market: impl Into<Market>,
@@ -487,12 +482,9 @@ where
                 .await
         })
     }
-    fn get_balance(
-        &mut self,
-        asset: Option<Asset>,
-    ) -> BoxedServiceFuture<Self, Self::GetBalanceRequest> {
+    fn get_balance(&mut self) -> BoxedServiceFuture<Self, Self::GetBalanceRequest> {
         Box::pin(async move {
-            self.ready_call(<Self::GetBalanceRequest>::try_from(GetBalance { asset })?)
+            self.ready_call(<Self::GetBalanceRequest>::try_from(GetBalance)?)
                 .await
         })
     }
