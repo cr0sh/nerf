@@ -1,8 +1,9 @@
 use hyper_tls::HttpsConnector;
 use nerf::{IntoService, ReadyCall};
 use nerf_exchanges::{
-    binance::{self, Authentication, BinanceClient},
+    binance::{self, BinanceClient},
     common::CommonOpsService,
+    KeySecretAuthentication,
 };
 use rust_decimal::Decimal;
 
@@ -16,7 +17,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let mut svc = tower::ServiceBuilder::new()
         .layer_fn(|svc| {
             BinanceClient::new(svc)
-                .with_auth(Authentication::new(key.clone(), secret.clone()))
+                .with_auth(KeySecretAuthentication::new(&key, &secret))
                 .into_service()
         })
         .service(hyper::Client::builder().build(HttpsConnector::new()));

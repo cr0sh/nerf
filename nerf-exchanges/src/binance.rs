@@ -16,7 +16,10 @@ use sha2::Sha256;
 use thiserror::Error;
 use tracing::trace;
 
-use crate::common::{self, CommonOps, Unsupported};
+use crate::{
+    common::{self, CommonOps, Unsupported},
+    KeySecretAuthentication as Authentication,
+};
 
 use self::__private::Sealed;
 
@@ -41,18 +44,6 @@ pub enum Error {
 impl From<Infallible> for Error {
     fn from(x: Infallible) -> Self {
         match x {}
-    }
-}
-
-#[derive(Clone)]
-pub struct Authentication {
-    key: String,
-    secret: String,
-}
-
-impl Authentication {
-    pub fn new(key: String, secret: String) -> Self {
-        Self { key, secret }
     }
 }
 
@@ -492,8 +483,8 @@ where
             recv_window: SIGN_RECV_WINDOW_MILLIS,
             timestamp: chrono::Utc::now(),
         };
-        trace!(uri = uri.to_string(), signed_req = ?signed_req, api_key = self.authentication.key, method = method.to_string());
-        let mut hmac = HmacSha256::new(self.authentication.secret.as_bytes().into());
+        trace!(uri = uri.to_string(), signed_req = ?signed_req, api_key = self.authentication.key(), method = method.to_string());
+        let mut hmac = HmacSha256::new(self.authentication.secret().as_bytes().into());
         let params =
             serde_urlencoded::to_string(&signed_req).map_err(Error::SerializeUrlencodedBody)?;
         hmac.update(params.as_bytes());
