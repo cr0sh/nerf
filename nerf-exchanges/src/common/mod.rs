@@ -1,11 +1,15 @@
 //! Common types across various exchanges.
 
+mod types;
+
 use std::{convert::Infallible, future::Future, pin::Pin, str::FromStr};
 
 use rust_decimal::Decimal;
 use thiserror::Error;
 
 use nerf::{ClientService, ReadyCall};
+
+pub use self::types::*;
 
 pub type Asset = String;
 

@@ -1,3 +1,5 @@
+mod futures;
+
 use std::{
     convert::Infallible,
     fmt::{Debug, Write},
@@ -17,7 +19,7 @@ use thiserror::Error;
 use tracing::trace;
 
 use crate::{
-    common::{self, CommonOps, Unsupported},
+    common::{self, CommonOps, IntoCommon, OrderbookItem, Unsupported},
     KeySecretAuthentication as Authentication,
 };
 
@@ -338,6 +340,21 @@ impl From<common::CancelOrder> for DeleteApiV3Orders {
             order_id: Some(x.order_id.parse().expect("Cannot parse order_id")),
             orig_client_order_id: None,
         }
+    }
+}
+
+impl IntoCommon<common::Orderbook> for GetApiV3DepthResponse {
+    fn into_common(self) -> common::Orderbook {
+        common::Orderbook::new(
+            self.bids
+                .iter()
+                .map(|&BinanceOrderbookItem { price, quantity }| OrderbookItem { price, quantity })
+                .collect(),
+            self.asks
+                .iter()
+                .map(|&BinanceOrderbookItem { price, quantity }| OrderbookItem { price, quantity })
+                .collect(),
+        )
     }
 }
 
