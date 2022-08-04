@@ -49,7 +49,7 @@ async fn main() -> Result<(), anyhow::Error> {
         .await?;
     tracing::info!("Result: {:#?}", result);
 
-    let result = svc.get_trades("spot:BTC/USDT".parse().unwrap()).await?;
+    let result = svc.get_trades("spot:BTC/USDT").await?;
 
     tracing::info!("Result: {:#?}", result);
 

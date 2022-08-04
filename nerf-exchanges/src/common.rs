@@ -63,6 +63,14 @@ impl FromStr for Market {
     }
 }
 
+impl<T: AsRef<str>> From<T> for Market {
+    /// [`FromStr`] shorthand which panicks on failure.
+    fn from(x: T) -> Self {
+        let x = x.as_ref();
+        x.parse().expect(x)
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum MarketKind {
@@ -346,22 +354,25 @@ where
     <Self as tower::Service<Self::GetPositionRequest>>::Error:
         From<<Self::GetPositionRequest as TryFrom<GetPosition>>::Error>,
 {
-    fn get_trades(&mut self, market: Market) -> BoxedServiceFuture<Self, Self::GetTradesRequest>;
+    fn get_trades(
+        &mut self,
+        market: impl Into<Market>,
+    ) -> BoxedServiceFuture<Self, Self::GetTradesRequest>;
     fn get_orderbook(
         &mut self,
-        market: Market,
+        market: impl Into<Market>,
         ticks: Option<u64>,
     ) -> BoxedServiceFuture<Self, Self::GetOrderbookRequest>;
     fn get_orders(&mut self, market: Market) -> BoxedServiceFuture<Self, Self::GetOrdersRequest>;
     fn get_all_orders(&mut self) -> BoxedServiceFuture<Self, Self::GetAllOrdersRequest>;
     fn place_order(
         &mut self,
-        market: Market,
+        market: impl Into<Market>,
         order: Order,
     ) -> BoxedServiceFuture<Self, Self::PlaceOrderRequest>;
     fn cancel_order(
         &mut self,
-        market: Market,
+        market: impl Into<Market>,
         order_id: String,
     ) -> BoxedServiceFuture<Self, Self::CancelOrderRequest>;
     fn cancel_all_orders(&mut self) -> BoxedServiceFuture<Self, Self::CancelAllOrdersRequest>;
@@ -371,7 +382,7 @@ where
     ) -> BoxedServiceFuture<Self, Self::GetBalanceRequest>;
     fn get_position(
         &mut self,
-        market: Market,
+        market: impl Into<Market>,
     ) -> BoxedServiceFuture<Self, Self::GetPositionRequest>;
 }
 
@@ -406,7 +417,11 @@ where
     <T as tower::Service<T::GetPositionRequest>>::Error:
         From<<T::GetPositionRequest as TryFrom<GetPosition>>::Error>,
 {
-    fn get_trades(&mut self, market: Market) -> BoxedServiceFuture<Self, Self::GetTradesRequest> {
+    fn get_trades(
+        &mut self,
+        market: impl Into<Market>,
+    ) -> BoxedServiceFuture<Self, Self::GetTradesRequest> {
+        let market = market.into();
         Box::pin(async move {
             self.ready_call(<Self::GetTradesRequest>::try_from(GetTrades { market })?)
                 .await
@@ -414,9 +429,10 @@ where
     }
     fn get_orderbook(
         &mut self,
-        market: Market,
+        market: impl Into<Market>,
         ticks: Option<u64>,
     ) -> BoxedServiceFuture<Self, Self::GetOrderbookRequest> {
+        let market = market.into();
         Box::pin(async move {
             self.ready_call(<Self::GetOrderbookRequest>::try_from(GetOrderbook {
                 market,
@@ -439,9 +455,10 @@ where
     }
     fn place_order(
         &mut self,
-        market: Market,
+        market: impl Into<Market>,
         order: Order,
     ) -> BoxedServiceFuture<Self, Self::PlaceOrderRequest> {
+        let market = market.into();
         Box::pin(async move {
             self.ready_call(<Self::PlaceOrderRequest>::try_from(PlaceOrder {
                 market,
@@ -452,9 +469,10 @@ where
     }
     fn cancel_order(
         &mut self,
-        market: Market,
+        market: impl Into<Market>,
         order_id: String,
     ) -> BoxedServiceFuture<Self, Self::CancelOrderRequest> {
+        let market = market.into();
         Box::pin(async move {
             self.ready_call(<Self::CancelOrderRequest>::try_from(CancelOrder {
                 market,
@@ -480,8 +498,9 @@ where
     }
     fn get_position(
         &mut self,
-        market: Market,
+        market: impl Into<Market>,
     ) -> BoxedServiceFuture<Self, Self::GetPositionRequest> {
+        let market = market.into();
         Box::pin(async move {
             self.ready_call(<Self::GetPositionRequest>::try_from(GetPosition {
                 market,
