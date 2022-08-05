@@ -343,7 +343,9 @@ impl From<common::CancelOrder> for DeleteApiV3Orders {
     }
 }
 
-impl IntoCommon<common::Orderbook> for GetApiV3DepthResponse {
+impl IntoCommon for GetApiV3DepthResponse {
+    type Output = common::Orderbook;
+
     fn into_common(self) -> common::Orderbook {
         common::Orderbook::new(
             self.bids
