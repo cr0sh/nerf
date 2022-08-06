@@ -100,7 +100,7 @@ impl FromStr for MarketKind {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "spot" => Ok(MarketKind::Spot),
-            "perp" => Ok(MarketKind::UsdMarginedPerpetual),
+            "swap" => Ok(MarketKind::UsdMarginedPerpetual),
             "inverse" => Ok(MarketKind::CoinMarginedPerpetual),
             other => Err(MarketParseError::InvalidKind(other.to_string())),
         }
