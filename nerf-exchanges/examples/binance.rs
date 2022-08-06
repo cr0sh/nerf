@@ -2,10 +2,10 @@ use hyper_tls::HttpsConnector;
 use nerf::{IntoService, ReadyCall};
 use nerf_exchanges::{
     binance::{self, BinanceClient},
-    common::CommonOpsService,
+    common::{CommonOpsService, Order, Side},
     KeySecretAuthentication,
 };
-use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
@@ -31,25 +31,20 @@ async fn main() -> Result<(), anyhow::Error> {
 
     tracing::info!("Result: {:#?}", result);
 
-    let result = svc
-        .ready_call(binance::PostApiV3Order {
-            symbol: "USDCBUSD".to_string(),
-            side: binance::Side::Buy,
-            order_type: binance::OrderType::Market,
-            time_in_force: None,
-            quantity: Some(Decimal::new(100, 0)),
-            quote_order_qty: None,
-            price: None,
-            new_client_order_id: None,
-            stop_price: None,
-            trailing_delta: None,
-            iceberg_qty: None,
-            new_order_resp_type: None,
-        })
-        .await?;
+    let result = svc.get_trades("swap:BTC/USDT").await?;
+
     tracing::info!("Result: {:#?}", result);
 
-    let result = svc.get_trades("spot:BTC/USDT").await?;
+    let result = svc
+        .place_order(
+            "swap:BTC/USDT",
+            Order::Market {
+                side: Side::Buy,
+                quantity: dec!(0.0001),
+            },
+            false,
+        )
+        .await?;
 
     tracing::info!("Result: {:#?}", result);
 

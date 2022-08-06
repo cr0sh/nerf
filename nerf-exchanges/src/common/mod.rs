@@ -5,6 +5,7 @@ mod types;
 use std::{convert::Infallible, future::Future, pin::Pin, str::FromStr};
 
 use rust_decimal::Decimal;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use nerf::{ClientService, ReadyCall};
@@ -75,7 +76,7 @@ impl<T: AsRef<str>> From<T> for Market {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum MarketKind {
     /// Spot market
@@ -226,6 +227,7 @@ pub struct GetAllOrders;
 pub struct PlaceOrder {
     pub market: Market,
     pub order: Order,
+    pub reduce_only: bool, // only applicable in futures market
 }
 
 #[derive(Debug)]
@@ -251,6 +253,7 @@ pub type BoxedServiceFuture<'a, S, Request> =
 /// A special type to indicate request is unsupported, used on [`CommonOpsService`]'s associated type
 ///
 /// May be migrated into alias of `!` once the `never` type is stabilized.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum Unsupported {}
 
 // impl<T> From<T> for Unsupported {
@@ -270,24 +273,38 @@ impl Future for Unsupported {
     }
 }
 
-impl<T> tower::Service<Unsupported> for ClientService<T> {
-    type Response = Infallible;
+impl nerf::Request for Unsupported {
+    type Response = Unsupported;
+}
 
-    type Error = Infallible;
-
-    type Future = Unsupported;
-
-    fn poll_ready(
-        &mut self,
-        _cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Result<(), Self::Error>> {
-        panic!("Unsupported request type")
+impl nerf::HttpRequest for Unsupported {
+    fn uri(&self) -> hyper::http::Uri {
+        match *self {}
     }
 
-    fn call(&mut self, req: Unsupported) -> Self::Future {
-        match req {}
+    fn method(&self) -> hyper::http::Method {
+        match *self {}
     }
 }
+
+// impl<T> tower::Service<Unsupported> for ClientService<T> {
+//     type Response = Infallible;
+
+//     type Error = Infallible;
+
+//     type Future = Unsupported;
+
+//     fn poll_ready(
+//         &mut self,
+//         _cx: &mut std::task::Context<'_>,
+//     ) -> std::task::Poll<Result<(), Self::Error>> {
+//         panic!("Unsupported request type")
+//     }
+
+//     fn call(&mut self, req: Unsupported) -> Self::Future {
+//         match req {}
+//     }
+// }
 
 pub trait CommonOps {
     type GetTradesRequest: TryFrom<GetTrades>;
@@ -371,6 +388,7 @@ where
         &mut self,
         market: impl Into<Market>,
         order: Order,
+        reduce_only: bool, // only applicable in futures market
     ) -> BoxedServiceFuture<Self, Self::PlaceOrderRequest>;
     fn cancel_order(
         &mut self,
@@ -456,12 +474,14 @@ where
         &mut self,
         market: impl Into<Market>,
         order: Order,
+        reduce_only: bool,
     ) -> BoxedServiceFuture<Self, Self::PlaceOrderRequest> {
         let market = market.into();
         Box::pin(async move {
             self.ready_call(<Self::PlaceOrderRequest>::try_from(PlaceOrder {
                 market,
                 order,
+                reduce_only,
             })?)
             .await
         })

@@ -29,6 +29,7 @@ tracing = "0.1.35"
 tracing-subscriber = { version = "0.3.11", features = ["env-filter"] }
 hyper-tls = "0.5.0"
 criterion = "0.3.6"
+rust_decimal_macros = "1.26.1"
 
 [[bench]]
 name = "binance_serde"
