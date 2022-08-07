@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use nerf::{ClientService, ReadyCall};
+use tower::buffer::Buffer;
 
 pub use self::types::*;
 
@@ -524,6 +525,29 @@ where
             .await
         })
     }
+}
+
+impl<T, Request> CommonOps for Buffer<T, Request>
+where
+    T: CommonOps + tower::Service<Request>,
+{
+    type GetTradesRequest = <T as CommonOps>::GetTradesRequest;
+
+    type GetOrderbookRequest = <T as CommonOps>::GetOrderbookRequest;
+
+    type GetOrdersRequest = <T as CommonOps>::GetOrdersRequest;
+
+    type GetAllOrdersRequest = <T as CommonOps>::GetAllOrdersRequest;
+
+    type PlaceOrderRequest = <T as CommonOps>::PlaceOrderRequest;
+
+    type CancelOrderRequest = <T as CommonOps>::CancelOrderRequest;
+
+    type CancelAllOrdersRequest = <T as CommonOps>::CancelAllOrdersRequest;
+
+    type GetBalanceRequest = <T as CommonOps>::GetBalanceRequest;
+
+    type GetPositionRequest = <T as CommonOps>::GetPositionRequest;
 }
 
 macro_rules! impl_unsupported {
