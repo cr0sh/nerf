@@ -1,8 +1,9 @@
 use rust_decimal::Decimal;
 
 /// Conversion into common types.
-pub trait IntoCommon<T> {
-    fn into_common(self) -> T;
+pub trait IntoCommon {
+    type Output;
+    fn into_common(self) -> Self::Output;
 }
 
 #[derive(Clone, Debug)]

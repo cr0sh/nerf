@@ -7,7 +7,7 @@ use serde_with::skip_serializing_none;
 
 use crate::common::{
     self, CancelOrder, GetAllOrders, GetBalance, GetOrderbook, GetOrders, GetPosition, GetTrades,
-    PlaceOrder, MarketKind,
+    IntoCommon, MarketKind, Orderbook, OrderbookItem, PlaceOrder,
 };
 
 use super::__private::Sealed;
@@ -426,5 +426,22 @@ impl From<CancelOrder> for DeleteFapiV1Order {
             order_id: Some(x.order_id.parse().expect("cannot parse order_id")),
             orig_client_order_id: None,
         }
+    }
+}
+
+impl IntoCommon for GetFapiV1DepthResponse {
+    type Output = Orderbook;
+
+    fn into_common(self) -> Self::Output {
+        Orderbook::new(
+            self.bids
+                .iter()
+                .map(|&BinanceOrderbookItem { price, quantity }| OrderbookItem { price, quantity })
+                .collect(),
+            self.asks
+                .iter()
+                .map(|&BinanceOrderbookItem { price, quantity }| OrderbookItem { price, quantity })
+                .collect(),
+        )
     }
 }

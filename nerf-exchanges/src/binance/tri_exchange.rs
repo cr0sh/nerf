@@ -6,8 +6,8 @@ use nerf::{HttpRequest, Request};
 use serde::{Deserialize, Serialize};
 
 use crate::common::{
-    CancelOrder, GetOrderbook, GetOrders, GetPosition, GetTrades, MarketKind, PlaceOrder,
-    Unsupported,
+    CancelOrder, GetOrderbook, GetOrders, GetPosition, GetTrades, IntoCommon, MarketKind,
+    PlaceOrder, Unsupported,
 };
 
 use super::{Signer, __private::Sealed};
@@ -129,4 +129,21 @@ where
     Futures: Signer<Signer = Spot::Signer>,
 {
     type Signer = Spot::Signer;
+}
+
+// TODO: implement dapi and introduce `Inverse` tyvar here
+impl<Spot, Futures> IntoCommon for TriExchange<Spot, Futures, Unsupported>
+where
+    Spot: IntoCommon,
+    Futures: IntoCommon<Output = Spot::Output>,
+{
+    type Output = Spot::Output;
+
+    fn into_common(self) -> Self::Output {
+        match self {
+            TriExchange::Spot(x) => x.into_common(),
+            TriExchange::Futures(x) => x.into_common(),
+            TriExchange::Inverse(..) => unreachable!(),
+        }
+    }
 }
