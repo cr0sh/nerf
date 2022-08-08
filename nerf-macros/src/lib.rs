@@ -187,7 +187,7 @@ pub fn put(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// ```
 #[proc_macro_attribute]
 pub fn delete(attr: TokenStream, item: TokenStream) -> TokenStream {
-    http::entrypoint(attr, item, quote! { ::nerf::http::Method::GET })
+    http::entrypoint(attr, item, quote! { ::nerf::http::Method::DELETE })
 }
 
 /// Attribute macro to add a 'tag' to a type.
