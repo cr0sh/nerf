@@ -116,7 +116,7 @@ pub struct GetFapiV2BalanceResponseItem {
 #[tag(Signer = UserDataSigner)]
 #[skip_serializing_none]
 pub struct GetFapiV2PositionRisk {
-    symbol: Option<String>,
+    pub symbol: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
