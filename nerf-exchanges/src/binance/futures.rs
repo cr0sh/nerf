@@ -24,6 +24,19 @@ where
     }
 }
 
+fn deserialize_bool_str<'de, D>(deserializer: D) -> Result<bool, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let s: &str = serde::de::Deserialize::deserialize(deserializer)?;
+
+    match s {
+        "true" => Ok(true),
+        "false" => Ok(false),
+        _ => Err(serde::de::Error::unknown_variant(s, &["true", "false"])),
+    }
+}
+
 fn bool_str_screaming<S>(x: &bool, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: serde::Serializer,
@@ -112,7 +125,7 @@ pub struct GetFapiV2BalanceResponseItem {
 }
 
 #[derive(Clone, Debug, Serialize)]
-#[get("https://fapi.binance.com/fapi/v2/balance", response = GetFapiV2PositionRiskResponse)]
+#[get("https://fapi.binance.com/fapi/v2/positionRisk", response = GetFapiV2PositionRiskResponse)]
 #[tag(Signer = UserDataSigner)]
 #[skip_serializing_none]
 pub struct GetFapiV2PositionRisk {
@@ -132,6 +145,7 @@ pub enum GetFapiV2PositionRiskResponse {
 pub struct GetFapiV2PositionRiskResponseOneway {
     pub entry_price: Decimal,
     pub margin_type: String,
+    #[serde(deserialize_with = "deserialize_bool_str")]
     pub is_auto_add_margin: bool,
     pub isolated_margin: Decimal,
     pub leverage: Decimal,
@@ -163,7 +177,8 @@ pub struct GetFapiV2PositionRiskResponseHedge {
     pub max_notional_value: Decimal,
     pub margin_type: String,
     pub isolated_margin: Decimal,
-    pub is_auto_add_margin: Decimal,
+    #[serde(deserialize_with = "deserialize_bool_str")]
+    pub is_auto_add_margin: bool,
     pub position_side: String,
     pub notional: Decimal,
     pub isolated_wallet: Decimal,
