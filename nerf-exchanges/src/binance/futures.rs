@@ -348,7 +348,7 @@ pub struct DeleteFapiV1AllOpenOrders {
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct DeleteFapiV1AllOpenOrdersResponse {
-    pub code: String,
+    pub code: i64,
     pub msg: String,
 }
 
