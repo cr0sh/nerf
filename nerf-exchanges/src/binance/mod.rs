@@ -274,7 +274,7 @@ where
                 .header("X-MBX-APIKEY", self.authentication.key.clone())
                 .body(hyper::Body::empty())
                 .map_err(Error::ConstructHttpRequest)?)
-        } else if method == nerf::http::Method::POST {
+        } else if method == nerf::http::Method::POST || method == nerf::http::Method::DELETE {
             let body = format!("{params}{signature}");
             trace!(body = body, "Method is POST");
             Ok(hyper::Request::builder()
