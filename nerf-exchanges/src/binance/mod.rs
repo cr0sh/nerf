@@ -264,10 +264,10 @@ where
             s
         };
 
+        let full_uri = format!("{uri}?{params}{signature}");
+        trace!(full_uri = full_uri, method = ?method);
         if method == nerf::http::Method::GET {
             assert!(uri.query().is_none()); // TODO
-            let full_uri = format!("{uri}?{params}{signature}");
-            trace!(full_uri = full_uri, "Method is GET");
             Ok(hyper::Request::builder()
                 .uri(full_uri)
                 .method(method)
@@ -275,14 +275,12 @@ where
                 .body(hyper::Body::empty())
                 .map_err(Error::ConstructHttpRequest)?)
         } else if method == nerf::http::Method::POST || method == nerf::http::Method::DELETE {
-            let body = format!("{params}{signature}");
-            trace!(body = body, "Method is POST");
             Ok(hyper::Request::builder()
-                .uri(uri)
+                .uri(full_uri)
                 .method(method)
                 .header("X-MBX-APIKEY", self.authentication.key.clone())
                 .header("Content-Type", "x-www-form-urlencoded")
-                .body(hyper::Body::from(body))
+                .body(hyper::Body::empty())
                 .map_err(Error::ConstructHttpRequest)?)
         } else {
             Err(Error::UnsupportedHttpMethod(method))
