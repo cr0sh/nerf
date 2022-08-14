@@ -221,7 +221,7 @@ where
         }
 
         type HmacSha256 = Hmac<Sha256>;
-        const SIGN_RECV_WINDOW_MILLIS: u64 = 2000;
+        const SIGN_RECV_WINDOW_MILLIS: u64 = 5000;
 
         #[derive(Serialize, Debug)]
         #[serde(rename_all = "camelCase")]
