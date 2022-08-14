@@ -115,3 +115,8 @@ where
         Box::pin(async move { T::try_from_response(fut.await?.into()).await })
     }
 }
+
+/// Shorthand for `impl Service<S, Response = <S as Request>::Response>`
+pub trait RequestService<R: Request>: tower::Service<R, Response = R::Response> {}
+
+impl<S: tower::Service<R, Response = R::Response> + ?Sized, R: Request> RequestService<R> for S {}
