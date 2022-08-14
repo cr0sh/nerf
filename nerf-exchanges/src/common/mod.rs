@@ -199,6 +199,7 @@ pub enum TimeInForce {
     GoodTilCancled,
     ImmediateOrCancel,
     FillOrKill,
+    GoodTilCrossing,
 }
 
 #[derive(Debug)]

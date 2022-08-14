@@ -427,6 +427,7 @@ impl From<PlaceOrder> for PostFapiV1Order {
                 common::TimeInForce::GoodTilCancled => TimeInForce::GoodTilCanceled,
                 common::TimeInForce::ImmediateOrCancel => TimeInForce::ImmediateOrCancel,
                 common::TimeInForce::FillOrKill => TimeInForce::FillOrKill,
+                common::TimeInForce::GoodTilCrossing => TimeInForce::GoodTilCrossing,
             }),
             quantity: Some(x.order.quantity()),
             reduce_only: false, // TODO

@@ -254,6 +254,7 @@ impl From<common::PlaceOrder> for PostApiV3Order {
                 common::TimeInForce::GoodTilCancled => TimeInForce::GoodTilCanceled,
                 common::TimeInForce::ImmediateOrCancel => TimeInForce::ImmediateOrCancel,
                 common::TimeInForce::FillOrKill => TimeInForce::FillOrKill,
+                common::TimeInForce::GoodTilCrossing => TimeInForce::GoodTilCrossing,
             }),
             quantity: Some(x.order.quantity()),
             quote_order_qty: None,

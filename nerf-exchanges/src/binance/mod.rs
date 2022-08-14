@@ -98,6 +98,8 @@ pub enum TimeInForce {
     ImmediateOrCancel,
     #[serde(rename = "FOK")]
     FillOrKill,
+    #[serde(rename = "GTX")]
+    GoodTilCrossing,
 }
 
 pub struct BinanceClient<S>(S);
