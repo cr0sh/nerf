@@ -2,6 +2,8 @@
 //!
 //! [`CommonOps`]: crate::common::CommonOps
 
+use std::fmt::Debug;
+
 use nerf::{HttpRequest, Request};
 use serde::{Deserialize, Serialize};
 
@@ -19,6 +21,32 @@ pub enum TriExchange<Spot, Futures, Inverse> {
     Spot(Spot),
     Futures(Futures),
     Inverse(Inverse),
+}
+
+impl<Spot, Futures, Inverse> TriExchange<Spot, Futures, Inverse>
+where
+    Self: Debug,
+{
+    pub fn unwrap_spot(self) -> Spot {
+        match self {
+            Self::Spot(x) => x,
+            _ => panic!("variant is not a `Spot`: {:?}", self),
+        }
+    }
+
+    pub fn unwrap_futures(self) -> Futures {
+        match self {
+            Self::Futures(x) => x,
+            _ => panic!("variant is not a `Futures`: {:?}", self),
+        }
+    }
+
+    pub fn unwrap_inverse(self) -> Inverse {
+        match self {
+            Self::Inverse(x) => x,
+            _ => panic!("variant is not a `Inverse`: {:?}", self),
+        }
+    }
 }
 
 pub trait ExtractMarketKind {

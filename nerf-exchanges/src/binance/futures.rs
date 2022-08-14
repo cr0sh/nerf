@@ -140,6 +140,29 @@ pub enum GetFapiV2PositionRiskResponse {
     Hedge([GetFapiV2PositionRiskResponseHedge; 2]),
 }
 
+impl GetFapiV2PositionRiskResponse {
+    /// Returns `None` if the position is in 'hedge mode'.
+    pub fn into_oneway(self) -> Option<GetFapiV2PositionRiskResponseOneway> {
+        match self {
+            Self::Oneway([x]) => Some(x),
+            _ => None,
+        }
+    }
+
+    /// Returns `None` if the position is in 'one-way mode'.
+    pub fn into_hedge(
+        self,
+    ) -> Option<(
+        GetFapiV2PositionRiskResponseHedge,
+        GetFapiV2PositionRiskResponseHedge,
+    )> {
+        match self {
+            Self::Hedge([x, y]) => Some((x, y)),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GetFapiV2PositionRiskResponseOneway {
