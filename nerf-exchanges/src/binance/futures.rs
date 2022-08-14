@@ -107,7 +107,7 @@ pub struct GetFapiV1DepthResponse {
 pub struct GetFapiV2Balance;
 
 #[derive(Clone, Debug, Deserialize)]
-pub struct GetFapiV2BalanceResponse(Vec<GetFapiV2BalanceResponseItem>);
+pub struct GetFapiV2BalanceResponse(pub Vec<GetFapiV2BalanceResponseItem>);
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
