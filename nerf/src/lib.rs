@@ -63,6 +63,7 @@ pub trait Client<Req: Request> {
     fn try_from_response(x: hyper::Response<hyper::Body>) -> Self::TryFromResponseFuture;
 }
 
+#[derive(Clone, Debug)]
 pub struct ClientService<T> {
     client: T,
 }
