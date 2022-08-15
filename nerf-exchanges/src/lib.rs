@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 pub mod binance;
 pub mod common;
 
@@ -21,5 +23,14 @@ impl KeySecretAuthentication {
 
     pub fn secret(&self) -> &str {
         &self.secret
+    }
+}
+
+impl Debug for KeySecretAuthentication {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("KeySecretAuthentication")
+            .field("key", &Box::new("<redacted>"))
+            .field("secret", &Box::new("redacted"))
+            .finish()
     }
 }

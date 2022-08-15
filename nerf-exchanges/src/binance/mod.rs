@@ -102,6 +102,7 @@ pub enum TimeInForce {
     GoodTilCrossing,
 }
 
+#[derive(Clone, Debug)]
 pub struct BinanceClient<S>(S);
 
 impl<S> BinanceClient<S> {
@@ -117,6 +118,7 @@ impl<S> BinanceClient<S> {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct BinancePrivateClient<S> {
     client: BinanceClient<S>,
     authentication: Authentication,
