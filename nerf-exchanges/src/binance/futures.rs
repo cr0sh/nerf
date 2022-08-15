@@ -168,8 +168,8 @@ impl GetFapiV2PositionRiskResponse {
 pub struct GetFapiV2PositionRiskResponseOneway {
     pub entry_price: Decimal,
     pub margin_type: String,
-    #[serde(deserialize_with = "deserialize_bool_str")]
-    pub is_auto_add_margin: bool,
+    // #[serde(deserialize_with = "deserialize_bool_str")] // FIXME: this causes deserialization failure
+    // pub is_auto_add_margin: bool,
     pub isolated_margin: Decimal,
     pub leverage: Decimal,
     pub liquidation_price: Decimal,
@@ -352,8 +352,8 @@ pub struct DeleteFapiV1OrderResponse {
     pub time_in_force: String,
     #[serde(rename = "type")]
     pub order_type: OrderType,
-    pub activate_price: Decimal,
-    pub price_rate: Decimal,
+    pub activate_price: Option<Decimal>,
+    pub price_rate: Option<Decimal>,
     #[serde(with = "ts_milliseconds")]
     pub update_time: DateTime<Utc>,
     pub working_type: String,
