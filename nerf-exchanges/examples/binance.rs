@@ -1,7 +1,7 @@
 use hyper_tls::HttpsConnector;
 use nerf::{IntoService, ReadyCall};
 use nerf_exchanges::{
-    binance::{self, BinanceClient},
+    binance::{self,  BinanceSpotClient},
     common::{CommonOpsService, Order, Side},
     KeySecretAuthentication,
 };
@@ -16,7 +16,7 @@ async fn main() -> Result<(), anyhow::Error> {
 
     let mut svc = tower::ServiceBuilder::new()
         .layer_fn(|svc| {
-            BinanceClient::new(svc)
+            BinanceSpotClient::new(svc)
                 .with_auth(KeySecretAuthentication::new(&key, &secret))
                 .into_service()
         })

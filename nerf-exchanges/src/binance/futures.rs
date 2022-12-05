@@ -1,17 +1,20 @@
-use chrono::serde::ts_milliseconds;
-use chrono::{DateTime, Utc};
-use nerf::{delete, get, post, tag};
+use std::{fmt::Debug, future::Future, pin::Pin};
+
+use chrono::{serde::ts_milliseconds, DateTime, Utc};
+use nerf::{delete, get, post, tag, Client, HttpRequest, Request};
 use rust_decimal::Decimal;
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
-use crate::common::{
-    self, CancelOrder, GetAllOrders, GetBalance, GetOrderbook, GetOrders, GetPosition, GetTrades,
-    IntoCommon, MarketKind, Orderbook, OrderbookItem, PlaceOrder,
+use crate::{
+    common::{self, CommonOps, IntoCommon, Orderbook, OrderbookItem, Unsupported},
+    KeySecretAuthentication as Authentication,
 };
 
-use super::__private::Sealed;
-use super::{BinanceOrderbookItem, Disabled, OrderType, Side, Signer, TimeInForce, UserDataSigner};
+use super::{
+    BinanceOrderbookItem, Disabled, Error, OrderType, Side, Signer, TimeInForce, UserDataSigner,
+    __private::Sealed,
+};
 
 fn bool_str<S>(x: &bool, serializer: S) -> Result<S::Ok, S::Error>
 where
@@ -375,8 +378,8 @@ pub struct DeleteFapiV1AllOpenOrdersResponse {
     pub msg: String,
 }
 
-impl From<GetTrades> for GetFapiV1Trades {
-    fn from(x: GetTrades) -> Self {
+impl From<common::GetTrades> for GetFapiV1Trades {
+    fn from(x: common::GetTrades) -> Self {
         Self {
             symbol: format!("{}{}", x.market.base(), x.market.quote()),
             limit: None,
@@ -384,8 +387,8 @@ impl From<GetTrades> for GetFapiV1Trades {
     }
 }
 
-impl From<GetOrderbook> for GetFapiV1Depth {
-    fn from(x: GetOrderbook) -> Self {
+impl From<common::GetOrderbook> for GetFapiV1Depth {
+    fn from(x: common::GetOrderbook) -> Self {
         Self {
             symbol: format!("{}{}", x.market.base(), x.market.quote()),
             limit: x.ticks,
@@ -393,23 +396,23 @@ impl From<GetOrderbook> for GetFapiV1Depth {
     }
 }
 
-impl From<GetBalance> for GetFapiV2Balance {
-    fn from(_: GetBalance) -> Self {
+impl From<common::GetBalance> for GetFapiV2Balance {
+    fn from(_: common::GetBalance) -> Self {
         Self
     }
 }
 
-impl From<GetPosition> for GetFapiV2PositionRisk {
-    fn from(x: GetPosition) -> Self {
-        assert_eq!(*x.market.kind(), MarketKind::UsdMarginedPerpetual);
+impl From<common::GetPosition> for GetFapiV2PositionRisk {
+    fn from(x: common::GetPosition) -> Self {
+        assert_eq!(*x.market.kind(), common::MarketKind::UsdMarginedPerpetual);
         Self {
             symbol: Some(format!("{}{}", x.market.base(), x.market.quote())),
         }
     }
 }
 
-impl From<PlaceOrder> for PostFapiV1Order {
-    fn from(x: PlaceOrder) -> Self {
+impl From<common::PlaceOrder> for PostFapiV1Order {
+    fn from(x: common::PlaceOrder) -> Self {
         Self {
             symbol: format!("{}{}", x.market.base(), x.market.quote()),
             side: match x.order.side() {
@@ -444,22 +447,22 @@ impl From<PlaceOrder> for PostFapiV1Order {
     }
 }
 
-impl From<GetOrders> for GetFapiV1OpenOrders {
-    fn from(x: GetOrders) -> Self {
+impl From<common::GetOrders> for GetFapiV1OpenOrders {
+    fn from(x: common::GetOrders) -> Self {
         Self {
             symbol: Some(format!("{}{}", x.market.base(), x.market.quote())),
         }
     }
 }
 
-impl From<GetAllOrders> for GetFapiV1OpenOrders {
-    fn from(_: GetAllOrders) -> Self {
+impl From<common::GetAllOrders> for GetFapiV1OpenOrders {
+    fn from(_: common::GetAllOrders) -> Self {
         Self { symbol: None }
     }
 }
 
-impl From<CancelOrder> for DeleteFapiV1Order {
-    fn from(x: CancelOrder) -> Self {
+impl From<common::CancelOrder> for DeleteFapiV1Order {
+    fn from(x: common::CancelOrder) -> Self {
         Self {
             symbol: format!("{}{}", x.market.base(), x.market.quote()),
             order_id: Some(x.order_id.parse().expect("cannot parse order_id")),
@@ -482,5 +485,157 @@ impl IntoCommon for GetFapiV1DepthResponse {
                 .map(|&BinanceOrderbookItem { price, quantity }| OrderbookItem { price, quantity })
                 .collect(),
         )
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct BinanceFuturesClient<S>(S);
+
+impl<S> BinanceFuturesClient<S> {
+    pub fn new(x: S) -> Self {
+        Self(x)
+    }
+
+    pub fn with_auth(self, authentication: Authentication) -> BinanceFuturesPrivateClient<S> {
+        BinanceFuturesPrivateClient {
+            client: self,
+            authentication,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct BinanceFuturesPrivateClient<S> {
+    client: BinanceFuturesClient<S>,
+    authentication: Authentication,
+}
+
+impl<T, S> Client<T> for BinanceFuturesClient<S>
+where
+    T: Request + HttpRequest + Sealed + Signer<Signer = Disabled> + Serialize + Debug,
+    T::Response: DeserializeOwned,
+{
+    type Service = S;
+
+    type Error = Error;
+
+    type TryFromResponseFuture = Pin<Box<dyn Future<Output = Result<T::Response, Self::Error>>>>;
+
+    fn service(&mut self) -> &mut Self::Service {
+        &mut self.0
+    }
+
+    fn try_into_request(&mut self, x: T) -> Result<hyper::Request<hyper::Body>, Self::Error> {
+        super::try_into_request(x)
+    }
+
+    fn try_from_response(x: hyper::Response<hyper::Body>) -> Self::TryFromResponseFuture {
+        super::try_from_response::<T>(x)
+    }
+}
+
+impl<T, S> Client<T> for BinanceFuturesPrivateClient<S>
+where
+    T: Request + HttpRequest + Sealed + Signer + Serialize + Debug,
+    T::Response: DeserializeOwned,
+{
+    type Service = S;
+
+    type Error = Error;
+
+    type TryFromResponseFuture = Pin<Box<dyn Future<Output = Result<T::Response, Self::Error>>>>;
+
+    fn service(&mut self) -> &mut Self::Service {
+        &mut self.client.0
+    }
+
+    fn try_into_request(&mut self, x: T) -> Result<hyper::Request<hyper::Body>, Self::Error> {
+        super::try_into_request_signed(&self.authentication, x)
+    }
+
+    fn try_from_response(x: hyper::Response<hyper::Body>) -> Self::TryFromResponseFuture {
+        super::try_from_response::<T>(x)
+    }
+}
+
+impl<S> CommonOps for BinanceFuturesClient<S> {
+    type GetTickersRequest = Unsupported;
+
+    type GetTradesRequest = GetFapiV1Trades;
+
+    type GetOrderbookRequest = GetFapiV1Depth;
+
+    type GetOrdersRequest = Unsupported;
+
+    type GetAllOrdersRequest = Unsupported;
+
+    type PlaceOrderRequest = Unsupported;
+
+    type CancelOrderRequest = Unsupported;
+
+    type CancelAllOrdersRequest = Unsupported;
+
+    type GetBalanceRequest = Unsupported;
+
+    type GetPositionRequest = Unsupported;
+}
+
+impl<S> tower::Service<Unsupported> for BinanceFuturesClient<S> {
+    type Response = ::std::convert::Infallible;
+
+    type Error = ::std::convert::Infallible;
+
+    type Future = Unsupported;
+
+    fn poll_ready(
+        &mut self,
+        _cx: &mut ::std::task::Context<'_>,
+    ) -> ::std::task::Poll<Result<(), Self::Error>> {
+        ::std::task::Poll::Ready(Ok(()))
+    }
+
+    fn call(&mut self, req: Unsupported) -> Self::Future {
+        match req {}
+    }
+}
+
+impl<S> CommonOps for BinanceFuturesPrivateClient<S> {
+    type GetTickersRequest = Unsupported;
+
+    type GetTradesRequest = GetFapiV1Trades;
+
+    type GetOrderbookRequest = GetFapiV1Depth;
+
+    type GetOrdersRequest = GetFapiV1OpenOrders;
+
+    type GetAllOrdersRequest = GetFapiV1OpenOrders;
+
+    type PlaceOrderRequest = PostFapiV1Order;
+
+    type CancelOrderRequest = DeleteFapiV1Order;
+
+    type CancelAllOrdersRequest = Unsupported;
+
+    type GetBalanceRequest = Unsupported;
+
+    type GetPositionRequest = GetFapiV2PositionRisk;
+}
+
+impl<S> tower::Service<Unsupported> for BinanceFuturesPrivateClient<S> {
+    type Response = ::std::convert::Infallible;
+
+    type Error = ::std::convert::Infallible;
+
+    type Future = Unsupported;
+
+    fn poll_ready(
+        &mut self,
+        _cx: &mut ::std::task::Context<'_>,
+    ) -> ::std::task::Poll<Result<(), Self::Error>> {
+        ::std::task::Poll::Ready(Ok(()))
+    }
+
+    fn call(&mut self, req: Unsupported) -> Self::Future {
+        match req {}
     }
 }

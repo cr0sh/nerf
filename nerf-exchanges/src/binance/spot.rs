@@ -1,12 +1,40 @@
+use std::{fmt::Debug, future::Future, pin::Pin};
+
 use chrono::{serde::ts_milliseconds, DateTime, Utc};
-use nerf::{delete, get, post, tag};
+use nerf::{delete, get, post, tag, Client, HttpRequest, Request};
 use rust_decimal::Decimal;
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
-use crate::common::{self, GetTrades, IntoCommon, Orderbook, OrderbookItem};
+use crate::{
+    common::{self, CommonOps, IntoCommon, Orderbook, OrderbookItem, Unsupported},
+    KeySecretAuthentication as Authentication,
+};
 
-use super::{Disabled, OrderType, Side, Signer, TimeInForce, UserDataSigner, __private::Sealed};
+use super::{
+    Disabled, Error, OrderType, Side, Signer, TimeInForce, UserDataSigner, __private::Sealed,
+};
+
+#[skip_serializing_none]
+#[derive(Clone, Debug, Serialize)]
+#[get("https://api.binance.com/api/v3/ticker/bookTicker", response = GetApiV3BookTickerResponse)]
+#[tag(Signer = Disabled)]
+pub struct GetApiV3BookTicker {
+    pub symbols: Option<Vec<String>>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct GetApiV3BookTickerResponse(Vec<GetApiV3BookTickerResponseItem>);
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetApiV3BookTickerResponseItem {
+    pub symbol: String,
+    pub bid_price: Decimal,
+    pub bid_qty: Decimal,
+    pub ask_price: Decimal,
+    pub ask_qty: Decimal,
+}
 
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize)]
@@ -204,8 +232,20 @@ pub struct DeleteApiV3OrdersResponse {
     // TODO: Implement other fields
 }
 
-impl From<GetTrades> for GetApiV3Trades {
-    fn from(x: GetTrades) -> Self {
+impl From<common::GetTickers> for GetApiV3BookTicker {
+    fn from(x: common::GetTickers) -> Self {
+        GetApiV3BookTicker {
+            symbols: x.symbols.map(|x| {
+                x.into_iter()
+                    .map(|x| format!("{}{}", x.base(), x.quote()))
+                    .collect()
+            }),
+        }
+    }
+}
+
+impl From<common::GetTrades> for GetApiV3Trades {
+    fn from(x: common::GetTrades) -> Self {
         GetApiV3Trades {
             symbol: format!("{}{}", x.market.base(), x.market.quote()),
             limit: None,
@@ -298,5 +338,157 @@ impl IntoCommon for GetApiV3DepthResponse {
                 .map(|&BinanceOrderbookItem { price, quantity }| OrderbookItem { price, quantity })
                 .collect(),
         )
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct BinanceSpotClient<S>(S);
+
+impl<S> BinanceSpotClient<S> {
+    pub fn new(x: S) -> Self {
+        Self(x)
+    }
+
+    pub fn with_auth(self, authentication: Authentication) -> BinanceSpotPrivateClient<S> {
+        BinanceSpotPrivateClient {
+            client: self,
+            authentication,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct BinanceSpotPrivateClient<S> {
+    client: BinanceSpotClient<S>,
+    authentication: Authentication,
+}
+
+impl<T, S> Client<T> for BinanceSpotClient<S>
+where
+    T: Request + HttpRequest + Sealed + Signer<Signer = Disabled> + Serialize + Debug,
+    T::Response: DeserializeOwned,
+{
+    type Service = S;
+
+    type Error = Error;
+
+    type TryFromResponseFuture = Pin<Box<dyn Future<Output = Result<T::Response, Self::Error>>>>;
+
+    fn service(&mut self) -> &mut Self::Service {
+        &mut self.0
+    }
+
+    fn try_into_request(&mut self, x: T) -> Result<hyper::Request<hyper::Body>, Self::Error> {
+        super::try_into_request(x)
+    }
+
+    fn try_from_response(x: hyper::Response<hyper::Body>) -> Self::TryFromResponseFuture {
+        super::try_from_response::<T>(x)
+    }
+}
+
+impl<T, S> Client<T> for BinanceSpotPrivateClient<S>
+where
+    T: Request + HttpRequest + Sealed + Signer + Serialize + Debug,
+    T::Response: DeserializeOwned,
+{
+    type Service = S;
+
+    type Error = Error;
+
+    type TryFromResponseFuture = Pin<Box<dyn Future<Output = Result<T::Response, Self::Error>>>>;
+
+    fn service(&mut self) -> &mut Self::Service {
+        &mut self.client.0
+    }
+
+    fn try_into_request(&mut self, x: T) -> Result<hyper::Request<hyper::Body>, Self::Error> {
+        super::try_into_request_signed(&self.authentication, x)
+    }
+
+    fn try_from_response(x: hyper::Response<hyper::Body>) -> Self::TryFromResponseFuture {
+        super::try_from_response::<T>(x)
+    }
+}
+
+impl<S> CommonOps for BinanceSpotClient<S> {
+    type GetTickersRequest = GetApiV3BookTicker;
+
+    type GetTradesRequest = GetApiV3Trades;
+
+    type GetOrderbookRequest = GetApiV3Depth;
+
+    type GetOrdersRequest = Unsupported;
+
+    type GetAllOrdersRequest = Unsupported;
+
+    type PlaceOrderRequest = Unsupported;
+
+    type CancelOrderRequest = Unsupported;
+
+    type CancelAllOrdersRequest = Unsupported;
+
+    type GetBalanceRequest = Unsupported;
+
+    type GetPositionRequest = Unsupported;
+}
+
+impl<S> tower::Service<Unsupported> for BinanceSpotClient<S> {
+    type Response = ::std::convert::Infallible;
+
+    type Error = ::std::convert::Infallible;
+
+    type Future = Unsupported;
+
+    fn poll_ready(
+        &mut self,
+        _cx: &mut ::std::task::Context<'_>,
+    ) -> ::std::task::Poll<Result<(), Self::Error>> {
+        ::std::task::Poll::Ready(Ok(()))
+    }
+
+    fn call(&mut self, req: Unsupported) -> Self::Future {
+        match req {}
+    }
+}
+
+impl<S> CommonOps for BinanceSpotPrivateClient<S> {
+    type GetTickersRequest = GetApiV3BookTicker;
+
+    type GetTradesRequest = GetApiV3Trades;
+
+    type GetOrderbookRequest = GetApiV3Depth;
+
+    type GetOrdersRequest = GetApiV3OpenOrders;
+
+    type GetAllOrdersRequest = Unsupported; // FIXME: TriExchange requires ExtractMarketKind for a common request type
+
+    type PlaceOrderRequest = PostApiV3Order;
+
+    type CancelOrderRequest = DeleteApiV3Orders;
+
+    type CancelAllOrdersRequest = Unsupported;
+
+    type GetBalanceRequest = Unsupported; // FIXME: TriExchange requires ExtractMarketKind for a common request type
+
+    type GetPositionRequest = Unsupported;
+}
+
+impl<S> tower::Service<Unsupported> for BinanceSpotPrivateClient<S> {
+    type Response = ::std::convert::Infallible;
+
+    type Error = ::std::convert::Infallible;
+
+    type Future = Unsupported;
+
+    fn poll_ready(
+        &mut self,
+        _cx: &mut ::std::task::Context<'_>,
+    ) -> ::std::task::Poll<Result<(), Self::Error>> {
+        ::std::task::Poll::Ready(Ok(()))
+    }
+
+    fn call(&mut self, req: Unsupported) -> Self::Future {
+        match req {}
     }
 }

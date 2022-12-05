@@ -203,6 +203,11 @@ pub enum TimeInForce {
 }
 
 #[derive(Debug)]
+pub struct GetTickers {
+    pub symbols: Option<Vec<Market>>,
+}
+
+#[derive(Debug)]
 pub struct GetTrades {
     pub market: Market,
 }
@@ -309,6 +314,7 @@ impl nerf::HttpRequest for Unsupported {
 // }
 
 pub trait CommonOps {
+    type GetTickersRequest: TryFrom<GetTickers>;
     type GetTradesRequest: TryFrom<GetTrades>;
     type GetOrderbookRequest: TryFrom<GetOrderbook>;
     type GetOrdersRequest: TryFrom<GetOrders>;
@@ -324,6 +330,8 @@ impl<T> CommonOps for ClientService<T>
 where
     T: CommonOps,
 {
+    type GetTickersRequest = <T as CommonOps>::GetTickersRequest;
+
     type GetTradesRequest = <T as CommonOps>::GetTradesRequest;
 
     type GetOrderbookRequest = <T as CommonOps>::GetOrderbookRequest;
@@ -346,6 +354,7 @@ where
 /// Constraints to ensure that a service support [`tower::Service`] for common requests
 pub trait CommonOpsService:
     CommonOps
+    + tower::Service<Self::GetTickersRequest>
     + tower::Service<Self::GetTradesRequest>
     + tower::Service<Self::GetOrderbookRequest>
     + tower::Service<Self::GetOrdersRequest>
@@ -375,6 +384,10 @@ where
     <Self as tower::Service<Self::GetPositionRequest>>::Error:
         From<<Self::GetPositionRequest as TryFrom<GetPosition>>::Error>,
 {
+    fn get_tickers(
+        &mut self,
+        symbols: Option<impl Into<Vec<Market>>>,
+    ) -> BoxedServiceFuture<Self, Self::GetTickersRequest>;
     fn get_trades(
         &mut self,
         market: impl Into<Market>,
@@ -408,6 +421,7 @@ where
 impl<T> CommonOpsService for T
 where
     T: CommonOps
+        + tower::Service<Self::GetTickersRequest>
         + tower::Service<Self::GetTradesRequest>
         + tower::Service<Self::GetOrderbookRequest>
         + tower::Service<Self::GetOrdersRequest>
@@ -417,6 +431,8 @@ where
         + tower::Service<Self::CancelAllOrdersRequest>
         + tower::Service<Self::GetBalanceRequest>
         + tower::Service<Self::GetPositionRequest>,
+    <T as tower::Service<T::GetTickersRequest>>::Error:
+        From<<T::GetTickersRequest as TryFrom<GetTickers>>::Error>,
     <T as tower::Service<T::GetTradesRequest>>::Error:
         From<<T::GetTradesRequest as TryFrom<GetTrades>>::Error>,
     <T as tower::Service<T::GetOrderbookRequest>>::Error:
@@ -436,6 +452,16 @@ where
     <T as tower::Service<T::GetPositionRequest>>::Error:
         From<<T::GetPositionRequest as TryFrom<GetPosition>>::Error>,
 {
+    fn get_tickers(
+        &mut self,
+        symbols: Option<impl Into<Vec<Market>>>,
+    ) -> BoxedServiceFuture<Self, Self::GetTickersRequest> {
+        let symbols = symbols.map(Into::into);
+        Box::pin(async move {
+            self.ready_call(<Self::GetTickersRequest>::try_from(GetTickers { symbols })?)
+                .await
+        })
+    }
     fn get_trades(
         &mut self,
         market: impl Into<Market>,
@@ -532,6 +558,8 @@ impl<T, Request> CommonOps for Buffer<T, Request>
 where
     T: CommonOps + tower::Service<Request>,
 {
+    type GetTickersRequest = <T as CommonOps>::GetTickersRequest;
+
     type GetTradesRequest = <T as CommonOps>::GetTradesRequest;
 
     type GetOrderbookRequest = <T as CommonOps>::GetOrderbookRequest;
@@ -566,6 +594,7 @@ macro_rules! impl_unsupported {
 }
 
 impl_unsupported!(
+    GetTickers,
     GetTrades,
     GetOrderbook,
     GetOrders,
