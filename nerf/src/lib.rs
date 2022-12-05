@@ -90,8 +90,7 @@ where
     Req: Request,
     T: Client<Req, Service = S>,
     T::Error: From<S::Error> + 'static,
-    S: tower::Service<hyper::Request<hyper::Body>>,
-    hyper::Response<hyper::Body>: From<S::Response>,
+    S: tower::Service<hyper::Request<hyper::Body>, Response = hyper::Response<hyper::Body>>,
     S::Future: 'static,
 {
     type Response = Req::Response;
@@ -113,7 +112,7 @@ where
             Err(e) => return Box::pin(async move { Err(e) }),
         };
         let fut = self.client.service().call(req);
-        Box::pin(async move { T::try_from_response(fut.await?.into()).await })
+        Box::pin(async move { T::try_from_response(fut.await?).await })
     }
 }
 
