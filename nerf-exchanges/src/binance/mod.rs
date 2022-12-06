@@ -40,14 +40,6 @@ pub enum Error {
     Hyper(#[from] hyper::Error),
     #[error("Unsupported HTTP method {0}")]
     UnsupportedHttpMethod(nerf::http::Method),
-    /// A boxed error variant.
-    /// [tower::buffer::Buffer] returns a Boxed error type so [Client]s must implement
-    /// `From<Box<dyn StdError + Send + Sync + 'static>>` to support buffering.
-    ///
-    /// The conversion is done by manual downcasting to possible inner error variants
-    /// and this variant is a fallback if every downcast fails.
-    #[error(transparent)]
-    Boxed(Box<dyn std::error::Error + Send + Sync + 'static>),
 }
 
 impl From<Infallible> for Error {
