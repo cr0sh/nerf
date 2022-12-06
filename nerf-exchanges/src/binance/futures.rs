@@ -7,14 +7,13 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
 use crate::{
-    common::{self, CommonOps, IntoCommon, Orderbook, OrderbookItem, Unsupported},
+    common::{
+        self, CommonOps, IntoCommon, Orderbook, OrderbookItem, Private, Disabled, Signer, Unsupported,
+    },
     Error, KeySecretAuthentication as Authentication,
 };
 
-use super::{
-    BinanceOrderbookItem, Disabled, OrderType, Side, Signer, TimeInForce, UserDataSigner,
-    __private::Sealed,
-};
+use super::{BinanceOrderbookItem, OrderType, Side, TimeInForce, __private::Sealed};
 
 fn bool_str<S>(x: &bool, serializer: S) -> Result<S::Ok, S::Error>
 where
@@ -106,7 +105,7 @@ pub struct GetFapiV1DepthResponse {
 
 #[derive(Clone, Debug, Serialize)]
 #[get("https://fapi.binance.com/fapi/v2/balance", response = GetFapiV2BalanceResponse)]
-#[tag(Signer = UserDataSigner)]
+#[tag(Signer = Private)]
 pub struct GetFapiV2Balance;
 
 #[derive(Clone, Debug, Deserialize)]
@@ -129,7 +128,7 @@ pub struct GetFapiV2BalanceResponseItem {
 
 #[derive(Clone, Debug, Serialize)]
 #[get("https://fapi.binance.com/fapi/v2/positionRisk", response = GetFapiV2PositionRiskResponse)]
-#[tag(Signer = UserDataSigner)]
+#[tag(Signer = Private)]
 #[skip_serializing_none]
 pub struct GetFapiV2PositionRisk {
     pub symbol: Option<String>,
@@ -214,7 +213,7 @@ pub struct GetFapiV2PositionRiskResponseHedge {
 
 #[derive(Clone, Debug, Serialize)]
 #[post("https://fapi.binance.com/fapi/v1/order", response = PostFapiV1OrderResponse)]
-#[tag(Signer = UserDataSigner)]
+#[tag(Signer = Private)]
 #[serde(rename_all = "camelCase")]
 #[skip_serializing_none]
 pub struct PostFapiV1Order {
@@ -271,7 +270,7 @@ pub struct PostFapiV1OrderResponse {
 
 #[derive(Clone, Debug, Serialize)]
 #[get("https://fapi.binance.com/fapi/v1/openOrder", response = GetFapiV1OpenOrderResponse)]
-#[tag(Signer = UserDataSigner)]
+#[tag(Signer = Private)]
 #[serde(rename_all = "camelCase")]
 #[skip_serializing_none]
 pub struct GetFapiV1OpenOrder {
@@ -313,7 +312,7 @@ pub struct GetFapiV1OpenOrderResponse {
 
 #[derive(Clone, Debug, Serialize)]
 #[get("https://fapi.binance.com/fapi/v1/openOrders", response = GetFapiV1OpenOrdersResponse)]
-#[tag(Signer = UserDataSigner)]
+#[tag(Signer = Private)]
 #[serde(rename_all = "camelCase")]
 #[skip_serializing_none]
 pub struct GetFapiV1OpenOrders {
@@ -325,7 +324,7 @@ pub struct GetFapiV1OpenOrdersResponse(Vec<GetFapiV1OpenOrderResponse>);
 
 #[derive(Clone, Debug, Serialize)]
 #[delete("https://fapi.binance.com/fapi/v1/order", response = DeleteFapiV1OrderResponse)]
-#[tag(Signer = UserDataSigner)]
+#[tag(Signer = Private)]
 #[serde(rename_all = "camelCase")]
 #[skip_serializing_none]
 pub struct DeleteFapiV1Order {
@@ -365,7 +364,7 @@ pub struct DeleteFapiV1OrderResponse {
 
 #[derive(Clone, Debug, Serialize)]
 #[delete("https://fapi.binance.com/fapi/v1/allOpenOrders", response = DeleteFapiV1AllOpenOrdersResponse)]
-#[tag(Signer = UserDataSigner)]
+#[tag(Signer = Private)]
 #[serde(rename_all = "camelCase")]
 #[skip_serializing_none]
 pub struct DeleteFapiV1AllOpenOrders {

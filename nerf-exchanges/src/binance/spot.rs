@@ -7,13 +7,13 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
 use crate::{
-    common::{self, CommonOps, IntoCommon, Orderbook, OrderbookItem, Unsupported},
+    common::{
+        self, CommonOps, IntoCommon, Orderbook, OrderbookItem, Private, Disabled, Signer, Unsupported,
+    },
     KeySecretAuthentication as Authentication,
 };
 
-use super::{
-    Disabled, Error, OrderType, Side, Signer, TimeInForce, UserDataSigner, __private::Sealed,
-};
+use super::{Error, OrderType, Side, TimeInForce, __private::Sealed};
 
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize)]
@@ -101,7 +101,7 @@ impl<'de> Deserialize<'de> for BinanceOrderbookItem {
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize)]
 #[get("https://api.binance.com/api/v3/account", response = GetApiV3AccountResponse)]
-#[tag(Signer = UserDataSigner)]
+#[tag(Signer = Private)]
 pub struct GetApiV3Account {}
 
 #[derive(Clone, Debug, Deserialize)]
@@ -132,7 +132,7 @@ pub struct GetApiV3AccountBalanceItem {
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize)]
 #[post("https://api.binance.com/api/v3/order", response = PostApiV3OrderResponse)]
-#[tag(Signer = UserDataSigner)]
+#[tag(Signer = Private)]
 #[serde(rename_all = "camelCase")]
 pub struct PostApiV3Order {
     pub symbol: String,
@@ -176,7 +176,7 @@ pub struct PostApiV3OrderResponse {
 
 #[derive(Clone, Debug, Serialize)]
 #[post("https://api.binance.com/api/v3/openOrders", response = GetApiV3OpenOrdersResponse)]
-#[tag(Signer = UserDataSigner)]
+#[tag(Signer = Private)]
 #[serde(rename_all = "camelCase")]
 pub struct GetApiV3OpenOrders {
     pub symbol: Option<String>,
@@ -214,7 +214,7 @@ pub struct GetApiV3OpenOrdersResponseItem {
 
 #[derive(Clone, Debug, Serialize)]
 #[delete("https://api.binance.com/api/v3/order", response = DeleteApiV3OrdersResponse)]
-#[tag(Signer = UserDataSigner)]
+#[tag(Signer = Private)]
 #[serde(rename_all = "camelCase")]
 pub struct DeleteApiV3Orders {
     pub symbol: String,

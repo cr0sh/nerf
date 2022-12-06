@@ -1,5 +1,5 @@
 use crate::{
-    common::{self, CommonOps, IntoCommon, Unsupported},
+    common::{self, CommonOps, IntoCommon, Private, Disabled, Signer, SignerKind, Unsupported},
     Error, KeySecretAuthentication,
 };
 
@@ -649,33 +649,6 @@ impl<S> CommonOps for UpbitPrivateClient<S> {
     type GetBalanceRequest = GetV1Accounts;
 
     type GetPositionRequest = Unsupported;
-}
-
-trait Signer {
-    type Signer;
-}
-
-impl Signer for Unsupported {
-    type Signer = Disabled;
-}
-
-struct Disabled;
-struct Private;
-
-trait SignerKind {
-    fn is_private() -> bool;
-}
-
-impl SignerKind for Disabled {
-    fn is_private() -> bool {
-        false
-    }
-}
-
-impl SignerKind for Private {
-    fn is_private() -> bool {
-        true
-    }
 }
 
 mod __private {

@@ -18,7 +18,10 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use sha2::Sha256;
 use tracing::trace;
 
-use crate::{common::Unsupported, Error, KeySecretAuthentication};
+use crate::{
+    common::{Signer, SignerKind},
+    Error, KeySecretAuthentication,
+};
 
 use self::__private::Sealed;
 
@@ -202,33 +205,6 @@ where
             Ok(resp)
         }
     })
-}
-
-trait Signer {
-    type Signer: SignerKind;
-}
-
-struct Disabled;
-struct UserDataSigner;
-
-impl Signer for Unsupported {
-    type Signer = Disabled;
-}
-
-trait SignerKind {
-    fn is_private() -> bool;
-}
-
-impl SignerKind for Disabled {
-    fn is_private() -> bool {
-        false
-    }
-}
-
-impl SignerKind for UserDataSigner {
-    fn is_private() -> bool {
-        true
-    }
 }
 
 mod __private {

@@ -313,6 +313,35 @@ impl nerf::HttpRequest for Unsupported {
 //     }
 // }
 
+/// A trait to mark if request endpoints are public or not.
+pub trait Signer {
+    type Signer: SignerKind;
+}
+
+impl Signer for Unsupported {
+    type Signer = Disabled;
+}
+
+pub struct Disabled;
+pub struct Private;
+
+/// A trait to extract signer kind on run-time.
+pub trait SignerKind {
+    fn is_private() -> bool;
+}
+
+impl SignerKind for Disabled {
+    fn is_private() -> bool {
+        false
+    }
+}
+
+impl SignerKind for Private {
+    fn is_private() -> bool {
+        true
+    }
+}
+
 pub trait CommonOps {
     type GetTickersRequest: TryFrom<GetTickers>;
     type GetTradesRequest: TryFrom<GetTrades>;
