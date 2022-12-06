@@ -1,7 +1,7 @@
 use hyper_tls::HttpsConnector;
 use nerf::{IntoService, ReadyCall};
 use nerf_exchanges::{
-    binance::{self,  BinanceSpotClient},
+    binance::{self, BinanceSpotClient},
     common::{CommonOpsService, Order, Side},
     KeySecretAuthentication,
 };
