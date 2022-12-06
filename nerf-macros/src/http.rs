@@ -7,7 +7,7 @@ use syn::{
     parse::{Parse, ParseStream},
     parse_macro_input,
     spanned::Spanned,
-    LitBool, LitStr, Path, Token,
+    LitBool, LitStr, Path, Token, Type,
 };
 
 use crate::{NamedItem, PunctuatedExt};
@@ -39,7 +39,7 @@ impl Spanned for Shim {
 
 struct HttpAttr {
     endpoint: LitStr,
-    response: Ident,
+    response: Type,
     shim: Option<Shim>,
 }
 
@@ -94,7 +94,7 @@ impl Parse for HttpAttr {
 
 enum HttpAttrKind {
     Endpoint(LitStr),
-    Response(Ident),
+    Response(Type),
     Signer(Ident),
     Shim(Shim),
 }
