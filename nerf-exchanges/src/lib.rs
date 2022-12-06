@@ -2,6 +2,7 @@ use std::fmt::Debug;
 
 pub mod binance;
 pub mod common;
+pub mod upbit;
 
 #[derive(Clone)]
 pub struct KeySecretAuthentication {
