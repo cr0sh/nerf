@@ -1,6 +1,6 @@
 use crate::{
     common::{self, CommonOps, IntoCommon, Unsupported},
-    KeySecretAuthentication,
+    Error, KeySecretAuthentication,
 };
 
 use chrono::{serde::ts_milliseconds, DateTime, Utc};
@@ -13,7 +13,6 @@ use rust_decimal::Decimal;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use sha2::{Digest, Sha256, Sha512};
-use thiserror::Error;
 use uuid::Uuid;
 
 use std::convert::Infallible;
@@ -23,26 +22,6 @@ use std::pin::Pin;
 use std::str::FromStr;
 
 use self::__private::Sealed;
-
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("cannot serialize request body into JSON: {0}")]
-    SerializeJsonBody(serde_json::Error),
-    #[error("cannot serialize request to URL-encoded parameters: {0}")]
-    SerializeUrlencodedBody(serde_urlencoded::ser::Error),
-    #[error("cannot construct http::Request: {0}")]
-    ConstructHttpRequest(nerf::http::Error),
-    #[error("cannot deserialize response into JSON: {0}")]
-    DeserializeJsonBody(serde_json::Error),
-    #[error("request to API server returned error, code: {name}, message: {message}")]
-    RequestFailed { name: String, message: String },
-    #[error(transparent)]
-    Hyper(#[from] hyper::Error),
-    #[error("cannot sign JWT payload for authentication: {0}")]
-    Jwt(jwt::Error),
-    #[error("Unsupported HTTP method {0}")]
-    UnsupportedHttpMethod(nerf::http::Method),
-}
 
 impl From<Infallible> for Error {
     fn from(x: Infallible) -> Self {
@@ -334,8 +313,8 @@ where
                         .map_err(Error::DeserializeJsonBody)?;
 
                 Err(Error::RequestFailed {
-                    name: error.name,
-                    message: error.message,
+                    code: Some(error.name),
+                    msg: Some(error.message),
                 })
             })
         }
@@ -457,8 +436,8 @@ where
                         .map_err(Error::DeserializeJsonBody)?;
 
                 Err(Error::RequestFailed {
-                    name: error.name,
-                    message: error.message,
+                    code: Some(error.name),
+                    msg: Some(error.message),
                 })
             })
         }

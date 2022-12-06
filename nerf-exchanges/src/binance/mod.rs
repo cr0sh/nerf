@@ -5,7 +5,6 @@ pub use self::futures::*;
 pub use spot::*;
 
 use std::{
-    convert::Infallible,
     fmt::{Debug, Write},
     future::Future,
     pin::Pin,
@@ -17,47 +16,11 @@ use hyper::body::Buf;
 use nerf::{http::StatusCode, HttpRequest, Request};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use sha2::Sha256;
-use thiserror::Error;
 use tracing::trace;
 
-use crate::{common::Unsupported, KeySecretAuthentication};
+use crate::{common::Unsupported, Error, KeySecretAuthentication};
 
 use self::__private::Sealed;
-
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("cannot serialize request body into JSON: {0}")]
-    SerializeJsonBody(serde_json::Error),
-    #[error("cannot serialize request to URL-encoded parameters: {0}")]
-    SerializeUrlencodedBody(serde_urlencoded::ser::Error),
-    #[error("cannot construct http::Request: {0}")]
-    ConstructHttpRequest(nerf::http::Error),
-    #[error("cannot deserialize response into JSON: {0}")]
-    DeserializeJsonBody(serde_json::Error),
-    #[error("request to API server returned error, code: {code}, message: {msg}")]
-    RequestFailed { code: i64, msg: String },
-    #[error(transparent)]
-    Hyper(#[from] hyper::Error),
-    #[error("Unsupported HTTP method {0}")]
-    UnsupportedHttpMethod(nerf::http::Method),
-}
-
-impl From<Infallible> for Error {
-    fn from(x: Infallible) -> Self {
-        match x {}
-    }
-}
-
-impl From<Box<dyn std::error::Error + Send + Sync + 'static>> for Error {
-    fn from(x: Box<dyn std::error::Error + Send + Sync + 'static>) -> Self {
-        let x = match x.downcast() {
-            Ok(x) => return Self::Hyper(*x),
-            Err(x) => x,
-        };
-
-        Self::Boxed(x)
-    }
-}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
@@ -231,8 +194,8 @@ where
             let error: ErrorResponse =
                 serde_json::from_reader(buf.reader()).map_err(Error::DeserializeJsonBody)?;
             Err(Error::RequestFailed {
-                code: error.code,
-                msg: error.msg,
+                code: Some(error.code.to_string()),
+                msg: Some(error.msg),
             })
         } else {
             let resp = serde_json::from_reader(buf.reader()).map_err(Error::DeserializeJsonBody)?;

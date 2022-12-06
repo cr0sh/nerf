@@ -8,11 +8,11 @@ use serde_with::skip_serializing_none;
 
 use crate::{
     common::{self, CommonOps, IntoCommon, Orderbook, OrderbookItem, Unsupported},
-    KeySecretAuthentication as Authentication,
+    Error, KeySecretAuthentication as Authentication,
 };
 
 use super::{
-    BinanceOrderbookItem, Disabled, Error, OrderType, Side, Signer, TimeInForce, UserDataSigner,
+    BinanceOrderbookItem, Disabled, OrderType, Side, Signer, TimeInForce, UserDataSigner,
     __private::Sealed,
 };
 
