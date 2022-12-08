@@ -208,7 +208,7 @@ impl common::IntoCommon for (GetV5MarketTickerResponseItem,) {
     type Output = common::Ticker;
 
     fn into_common(self) -> Self::Output {
-        common::Ticker::new(self.0.bid_px, self.0.bid_sz, self.0.ask_px, self.0.ask_sz)
+        common::Ticker::new(self.0.bid_px, self.0.ask_px)
     }
 }
 

@@ -9,38 +9,14 @@ pub trait IntoCommon {
 #[derive(Clone, Debug)]
 pub struct Ticker {
     bid_price: Decimal,
-    bid_quantity: Decimal,
     ask_price: Decimal,
-    ask_quantity: Decimal,
 }
 
 impl Ticker {
-    pub fn new(
-        bid_price: Decimal,
-        bid_quantity: Decimal,
-        ask_price: Decimal,
-        ask_quantity: Decimal,
-    ) -> Self {
+    pub fn new(bid_price: Decimal, ask_price: Decimal) -> Self {
         Self {
             bid_price,
-            bid_quantity,
             ask_price,
-            ask_quantity,
-        }
-    }
-}
-
-impl From<Ticker> for Orderbook {
-    fn from(x: Ticker) -> Self {
-        Self {
-            bids: vec![OrderbookItem {
-                price: x.bid_price,
-                quantity: x.bid_quantity,
-            }],
-            asks: vec![OrderbookItem {
-                price: x.ask_price,
-                quantity: x.ask_quantity,
-            }],
         }
     }
 }
