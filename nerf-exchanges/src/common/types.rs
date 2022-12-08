@@ -19,6 +19,14 @@ impl Ticker {
             ask_price,
         }
     }
+
+    pub fn bid_price(&self) -> Decimal {
+        self.bid_price
+    }
+
+    pub fn ask_price(&self) -> Decimal {
+        self.ask_price
+    }
 }
 
 #[derive(Clone, Debug)]
