@@ -4,6 +4,7 @@ use thiserror::Error;
 
 pub mod binance;
 pub mod common;
+pub mod cryptocom;
 pub mod okx;
 pub mod upbit;
 
