@@ -4,6 +4,7 @@ use thiserror::Error;
 
 pub mod binance;
 pub mod common;
+pub mod okx;
 pub mod upbit;
 
 #[derive(Error, Debug)]
@@ -58,5 +59,26 @@ impl Debug for KeySecretAuthentication {
             .field("key", &Box::new("<redacted>"))
             .field("secret", &Box::new("redacted"))
             .finish()
+    }
+}
+
+mod ts_milliseconds_str {
+    use chrono::{DateTime, TimeZone, Utc};
+    use serde::{Deserialize, Deserializer};
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<DateTime<Utc>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        let value = s
+            .parse::<i64>()
+            .map_err(|e| serde::de::Error::custom(e.to_string()))?;
+        match Utc.timestamp_opt(value / 1000, ((value % 1000) * 1_000_000) as u32) {
+            chrono::LocalResult::Single(x) => Ok(x),
+            _ => Err(serde::de::Error::custom(format!(
+                "cannot deserialize DateTime from timestamp_millis {value}"
+            ))),
+        }
     }
 }
