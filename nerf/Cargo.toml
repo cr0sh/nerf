@@ -19,13 +19,6 @@ serde_json = "1.0.81"
 serde_urlencoded = "0.7.1"
 bytes = "1.1.0"
 tracing = "0.1.35"
-nerf-exchanges = { git = "https://github.com/cr0sh/nerf.git", rev = "2768cd6", optional = true }
-nerf-extras = { git = "https://github.com/cr0sh/nerf.git", rev = "2768cd6", optional = true }
-
-[features]
-default = ["exchanges", "extras"]
-exchanges = ["nerf-exchanges"]
-extras = ["nerf-extras"]
 
 [dev-dependencies]
 axum = "0.5.13"

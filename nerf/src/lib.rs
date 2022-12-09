@@ -19,11 +19,6 @@ pub use pin_project::pin_project;
 pub use serde;
 pub use serde_json;
 
-#[cfg(feature = "exchanges")]
-pub use nerf_exchanges as exchanges;
-#[cfg(feature = "extras")]
-pub use nerf_extras as extras;
-
 /// Rate limit with weights.
 pub trait WeightedRateLimit {
     fn weight(&self) -> u64;
