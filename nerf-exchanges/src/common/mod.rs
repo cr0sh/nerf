@@ -15,7 +15,7 @@ pub use self::types::*;
 
 pub type Asset = String;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Market {
     /// Base asset
     base: Asset,
@@ -77,7 +77,7 @@ impl<T: AsRef<str>> From<T> for Market {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum MarketKind {
     /// Spot market
