@@ -3,6 +3,7 @@ use std::fmt::Debug;
 use thiserror::Error;
 
 pub mod binance;
+pub mod bithumb;
 pub mod common;
 pub mod cryptocom;
 pub mod okx;
