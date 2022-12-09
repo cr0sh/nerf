@@ -44,6 +44,8 @@ impl HttpRequest for GetPublicOrderbook {
     }
 }
 
+impl Sealed for GetPublicOrderbook {}
+
 #[derive(Clone, Debug, Deserialize)]
 pub struct GetPublicOrderbookResponse {
     pub order_currency: String,
