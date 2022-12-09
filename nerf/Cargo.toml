@@ -8,7 +8,6 @@ edition = "2021"
 [dependencies]
 async-trait = "0.1.56"
 http = "0.2.8"
-reqwest = { version = "0.11.11", optional = true }
 nerf-macros = { version = "0.1.0", path = "../nerf-macros" }
 serde = "1.0.137"
 hyper = "0.14.19"
@@ -20,10 +19,13 @@ serde_json = "1.0.81"
 serde_urlencoded = "0.7.1"
 bytes = "1.1.0"
 tracing = "0.1.35"
+nerf-exchanges = { git = "https://github.com/cr0sh/nerf.git", rev = "c7d8f887802376ed0ead9009d50cc9d684b5f967", optional = true }
+nerf-extras = { git = "https://github.com/cr0sh/nerf.git", rev = "c7d8f887802376ed0ead9009d50cc9d684b5f967", optional = true }
 
 [features]
-default = ["reqwest_client"]
-reqwest_client = ["reqwest"]
+default = ["exchanges", "extras"]
+exchanges = ["nerf-exchanges"]
+extras = ["nerf-extras"]
 
 [dev-dependencies]
 axum = "0.5.13"
