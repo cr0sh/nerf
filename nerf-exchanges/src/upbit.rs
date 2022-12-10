@@ -1,5 +1,5 @@
 use crate::{
-    common::{self, CommonOps, IntoCommon, Private, Disabled, Signer, SignerKind, Unsupported},
+    common::{self, CommonOps, Disabled, IntoCommon, Private, Signer, SignerKind, Unsupported},
     Error, KeySecretAuthentication,
 };
 

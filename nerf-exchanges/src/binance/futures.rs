@@ -8,7 +8,8 @@ use serde_with::skip_serializing_none;
 
 use crate::{
     common::{
-        self, CommonOps, IntoCommon, Orderbook, OrderbookItem, Private, Disabled, Signer, Unsupported,
+        self, CommonOps, Disabled, IntoCommon, Orderbook, OrderbookItem, Private, Signer,
+        Unsupported,
     },
     Error, KeySecretAuthentication as Authentication,
 };

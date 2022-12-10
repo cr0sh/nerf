@@ -2,7 +2,7 @@
 
 mod types;
 
-use std::{convert::Infallible, future::Future, pin::Pin, str::FromStr};
+use std::{convert::Infallible, fmt::Display, future::Future, pin::Pin, str::FromStr};
 
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};

@@ -136,8 +136,7 @@ where
     }
 
     fn try_into_request(&mut self, x: T) -> Result<hyper::Request<hyper::Body>, Self::Error> {
-        let query = serde_urlencoded::to_string(&x)
-            .map_err(Error::SerializeUrlencodedBody)?;
+        let query = serde_urlencoded::to_string(&x).map_err(Error::SerializeUrlencodedBody)?;
         if x.method() == Method::GET {
             let mut req = hyper::Request::new(hyper::Body::empty());
             let uri = x.uri();
