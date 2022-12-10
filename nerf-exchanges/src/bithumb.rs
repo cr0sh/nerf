@@ -1,4 +1,4 @@
-use std::{fmt::Debug, future::Future, pin::Pin};
+use std::{collections::HashMap, fmt::Debug, future::Future, pin::Pin};
 
 use crate::{
     common::{self, Disabled, Signer, Unsupported},
@@ -18,7 +18,7 @@ use serde_with::skip_serializing_none;
 #[tag(Signer = Disabled)]
 pub struct GetPublicOrderbook {
     #[serde(skip)]
-    pub order_currency: Option<String>,
+    pub order_currency: String,
     #[serde(skip)]
     pub payment_currency: String,
     pub count: Option<u64>,
@@ -32,11 +32,10 @@ impl HttpRequest for GetPublicOrderbook {
     fn uri(&self) -> http::Uri {
         format!(
             "https://api.bithumb.com/public/orderbook/{}_{}",
-            self.order_currency.as_deref().unwrap_or("ALL"),
-            self.payment_currency
+            self.order_currency, self.payment_currency
         )
         .parse()
-        .expect("cannot parse generated uri")
+        .expect("cannot parse the generated uri")
     }
 
     fn method(&self) -> http::Method {
@@ -45,6 +44,36 @@ impl HttpRequest for GetPublicOrderbook {
 }
 
 impl Sealed for GetPublicOrderbook {}
+
+#[skip_serializing_none]
+#[derive(Clone, Debug, Serialize)]
+#[tag(Signer = Disabled)]
+pub struct GetPublicOrderbookAll {
+    #[serde(skip)]
+    pub payment_currency: String,
+    pub count: Option<u64>,
+}
+
+impl Request for GetPublicOrderbookAll {
+    type Response = GetPublicOrderbookAllResponse;
+}
+
+impl HttpRequest for GetPublicOrderbookAll {
+    fn uri(&self) -> http::Uri {
+        format!(
+            "https://api.bithumb.com/public/orderbook/ALL_{}",
+            self.payment_currency
+        )
+        .parse()
+        .expect("cannot parse the generated uri")
+    }
+
+    fn method(&self) -> http::Method {
+        http::Method::GET
+    }
+}
+
+impl Sealed for GetPublicOrderbookAll {}
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct GetPublicOrderbookResponse {
@@ -60,6 +89,22 @@ pub struct GetPublicOrderbookResponse {
 pub struct GetPublicOrderbookResponseItem {
     quantity: Decimal,
     price: Decimal,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct GetPublicOrderbookAllResponse {
+    pub payment_currency: String,
+    #[serde(with = "ts_milliseconds_str")]
+    pub timestamp: DateTime<Utc>,
+    #[serde(flatten)]
+    pub orderbooks: HashMap<String, GetPublicOrderbookAllResponseItem>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct GetPublicOrderbookAllResponseItem {
+    pub order_currency: String,
+    pub bids: Vec<GetPublicOrderbookResponseItem>,
+    pub asks: Vec<GetPublicOrderbookResponseItem>,
 }
 
 #[derive(Clone, Debug)]
@@ -166,7 +211,7 @@ impl<S> tower::Service<Unsupported> for BithumbClient<S> {
 impl From<common::GetOrderbook> for GetPublicOrderbook {
     fn from(x: common::GetOrderbook) -> Self {
         Self {
-            order_currency: Some(x.market.base().to_string()),
+            order_currency: x.market.base().to_string(),
             payment_currency: x.market.quote().to_string(),
             count: x.ticks,
         }
@@ -174,6 +219,29 @@ impl From<common::GetOrderbook> for GetPublicOrderbook {
 }
 
 impl common::IntoCommon for GetPublicOrderbookResponse {
+    type Output = common::Orderbook;
+
+    fn into_common(self) -> Self::Output {
+        common::Orderbook::new(
+            self.bids
+                .iter()
+                .map(|x| common::OrderbookItem {
+                    price: x.price,
+                    quantity: x.quantity,
+                })
+                .collect(),
+            self.asks
+                .iter()
+                .map(|x| common::OrderbookItem {
+                    price: x.price,
+                    quantity: x.quantity,
+                })
+                .collect(),
+        )
+    }
+}
+
+impl common::IntoCommon for GetPublicOrderbookAllResponseItem {
     type Output = common::Orderbook;
 
     fn into_common(self) -> Self::Output {
