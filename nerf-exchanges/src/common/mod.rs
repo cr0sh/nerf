@@ -77,6 +77,12 @@ impl<T: AsRef<str>> From<T> for Market {
     }
 }
 
+impl Display for Market {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}:{}/{}", self.kind, self.base, self.quote)
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum MarketKind {
@@ -106,6 +112,17 @@ impl FromStr for MarketKind {
             "inverse" => Ok(MarketKind::CoinMarginedPerpetual),
             other => Err(MarketParseError::InvalidKind(other.to_string())),
         }
+    }
+}
+
+impl Display for MarketKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Self::Spot => "spot",
+            Self::UsdMarginedPerpetual => "swap",
+            Self::CoinMarginedPerpetual => "inverse",
+        };
+        write!(f, "{s}")
     }
 }
 
