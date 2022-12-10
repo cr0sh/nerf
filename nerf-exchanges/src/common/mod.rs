@@ -220,9 +220,7 @@ pub enum TimeInForce {
 }
 
 #[derive(Debug)]
-pub struct GetTickers {
-    pub symbols: Option<Vec<Market>>,
-}
+pub struct GetTickers;
 
 #[derive(Debug)]
 pub struct GetTrades {
@@ -430,10 +428,7 @@ where
     <Self as tower::Service<Self::GetPositionRequest>>::Error:
         From<<Self::GetPositionRequest as TryFrom<GetPosition>>::Error>,
 {
-    fn get_tickers(
-        &mut self,
-        symbols: Option<impl Into<Vec<Market>>>,
-    ) -> BoxedServiceFuture<Self, Self::GetTickersRequest>;
+    fn get_tickers(&mut self) -> BoxedServiceFuture<Self, Self::GetTickersRequest>;
     fn get_trades(
         &mut self,
         market: impl Into<Market>,
@@ -498,13 +493,9 @@ where
     <T as tower::Service<T::GetPositionRequest>>::Error:
         From<<T::GetPositionRequest as TryFrom<GetPosition>>::Error>,
 {
-    fn get_tickers(
-        &mut self,
-        symbols: Option<impl Into<Vec<Market>>>,
-    ) -> BoxedServiceFuture<Self, Self::GetTickersRequest> {
-        let symbols = symbols.map(Into::into);
+    fn get_tickers(&mut self) -> BoxedServiceFuture<Self, Self::GetTickersRequest> {
         Box::pin(async move {
-            self.ready_call(<Self::GetTickersRequest>::try_from(GetTickers { symbols })?)
+            self.ready_call(<Self::GetTickersRequest>::try_from(GetTickers)?)
                 .await
         })
     }

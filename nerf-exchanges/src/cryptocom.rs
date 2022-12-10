@@ -1,4 +1,4 @@
-use std::{fmt::Debug, future::Future, pin::Pin};
+use std::{collections::HashMap, fmt::Debug, future::Future, pin::Pin};
 
 use crate::{
     common::{self, Disabled, Signer, Unsupported},
@@ -211,13 +211,9 @@ impl<S> tower::Service<Unsupported> for CryptocomClient<S> {
 }
 
 impl From<common::GetTickers> for GetPublicGetTicker {
-    fn from(x: common::GetTickers) -> Self {
-        let market = x
-            .symbols
-            .and_then(|x| x.first().cloned())
-            .map(|x| format!("{}_{}", x.base(), x.quote()));
+    fn from(_: common::GetTickers) -> Self {
         Self {
-            instrument_name: market,
+            instrument_name: None,
         }
     }
 }
@@ -240,15 +236,19 @@ impl From<common::GetOrderbook> for GetPublicGetBook {
 }
 
 impl common::IntoCommon for Vec<GetPublicGetTickerResponseItem> {
-    type Output = Vec<common::Ticker>;
+    type Output = HashMap<common::Market, common::Ticker>;
 
     fn into_common(self) -> Self::Output {
         self.iter()
-            .map(|x| {
-                common::Ticker::new(
-                    x.best_bid.expect("empty orderbook"),
-                    x.best_ask.expect("empty orderbook"),
-                )
+            .filter_map(|x| {
+                let (base, quote) = x.instrument_name.split_once('_')?;
+                Some((
+                    format!("spot:{base}/{quote}").into(),
+                    common::Ticker::new(
+                        x.best_bid.expect("empty orderbook"),
+                        x.best_ask.expect("empty orderbook"),
+                    ),
+                ))
             })
             .collect()
     }

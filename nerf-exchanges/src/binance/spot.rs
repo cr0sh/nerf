@@ -1,4 +1,4 @@
-use std::{fmt::Debug, future::Future, pin::Pin};
+use std::{collections::HashMap, fmt::Debug, future::Future, pin::Pin};
 
 use chrono::{serde::ts_milliseconds, DateTime, Utc};
 use nerf::{delete, get, post, tag, Client, HttpRequest, Request};
@@ -234,14 +234,8 @@ pub struct DeleteApiV3OrdersResponse {
 }
 
 impl From<common::GetTickers> for GetApiV3BookTicker {
-    fn from(x: common::GetTickers) -> Self {
-        GetApiV3BookTicker {
-            symbols: x.symbols.map(|x| {
-                x.into_iter()
-                    .map(|x| format!("{}{}", x.base(), x.quote()))
-                    .collect()
-            }),
-        }
+    fn from(_: common::GetTickers) -> Self {
+        GetApiV3BookTicker { symbols: None }
     }
 }
 
@@ -322,6 +316,31 @@ impl From<common::CancelOrder> for DeleteApiV3Orders {
             order_id: Some(x.order_id.parse().expect("Cannot parse order_id")),
             orig_client_order_id: None,
         }
+    }
+}
+
+impl IntoCommon for GetApiV3BookTickerResponse {
+    type Output = HashMap<common::Market, common::Ticker>;
+
+    fn into_common(self) -> Self::Output {
+        fn split_end<'a>(symbol: &'a str, end: &'static str) -> Option<(&'a str, &'a str)> {
+            symbol
+                .strip_suffix(end)
+                .map(|x| (x, symbol.strip_prefix(x).unwrap()))
+        }
+
+        self.0
+            .into_iter()
+            .filter_map(|x| {
+                let (base, quote) = split_end(&x.symbol, "BTC")
+                    .or_else(|| split_end(&x.symbol, "USDT"))
+                    .or_else(|| split_end(&x.symbol, "BUSD"))?;
+                Some((
+                    common::Market::from(format!("spot:{base}/{quote}")),
+                    common::Ticker::new(x.bid_price, x.ask_price),
+                ))
+            })
+            .collect()
     }
 }
 

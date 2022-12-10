@@ -1,4 +1,4 @@
-use std::{fmt::Debug, future::Future, pin::Pin};
+use std::{collections::HashMap, fmt::Debug, future::Future, pin::Pin};
 
 use crate::{
     common::{self, Disabled, Signer, Unsupported},
@@ -20,6 +20,27 @@ use serde_with::skip_serializing_none;
 #[serde(rename_all = "camelCase")]
 pub struct GetV5MarketTicker {
     pub inst_id: String,
+}
+
+#[derive(Clone, Copy, Debug, Serialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum InstType {
+    Spot,
+    Swap,
+    Futures,
+    Option,
+}
+
+#[skip_serializing_none]
+#[derive(Clone, Debug, Serialize)]
+#[get("https://aws.okx.com/api/v5/market/tickers", response = Vec<GetV5MarketTickerResponseItem>)]
+#[tag(Signer = Disabled)]
+#[serde(rename_all = "camelCase")]
+pub struct GetV5MarketTickers {
+    pub inst_type: InstType,
+    #[serde(rename = "uly")]
+    pub underlying: Option<String>,
+    pub inst_family: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -180,14 +201,12 @@ impl<S> tower::Service<Unsupported> for OkxClient<S> {
     }
 }
 
-impl From<common::GetTickers> for GetV5MarketTicker {
-    fn from(x: common::GetTickers) -> Self {
-        let market = x
-            .symbols
-            .and_then(|x| x.first().cloned())
-            .expect("OKX only supports single ticker");
+impl From<common::GetTickers> for GetV5MarketTickers {
+    fn from(_: common::GetTickers) -> Self {
         Self {
-            inst_id: format!("{}-{}", market.base(), market.quote()),
+            inst_type: InstType::Spot, // NOTE: only spot tickers are supported
+            underlying: None,
+            inst_family: None,
         }
     }
 }
@@ -201,11 +220,19 @@ impl From<common::GetOrderbook> for GetV5MarketBooks {
     }
 }
 
-impl common::IntoCommon for (GetV5MarketTickerResponseItem,) {
-    type Output = common::Ticker;
+impl common::IntoCommon for Vec<GetV5MarketTickerResponseItem> {
+    type Output = HashMap<common::Market, common::Ticker>;
 
     fn into_common(self) -> Self::Output {
-        common::Ticker::new(self.0.bid_px, self.0.ask_px)
+        self.into_iter()
+            .filter_map(|x| {
+                let (base, quote) = x.inst_id.split_once('_')?;
+                Some((
+                    format!("spot:{base}/{quote}").into(),
+                    common::Ticker::new(x.bid_px, x.ask_px),
+                ))
+            })
+            .collect()
     }
 }
 
@@ -233,7 +260,7 @@ impl common::IntoCommon for GetV5MarketBooksResponse {
 }
 
 impl<S> common::CommonOps for OkxClient<S> {
-    type GetTickersRequest = GetV5MarketTicker;
+    type GetTickersRequest = GetV5MarketTickers;
 
     type GetTradesRequest = Unsupported;
 
