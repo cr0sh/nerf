@@ -90,7 +90,7 @@ impl Serialize for GetV1Orderbook {
 }
 
 #[derive(Clone, Debug, Deserialize)]
-pub struct GetV1OrderbookResponse(Vec<GetV1OrderbookResponseItem>);
+pub struct GetV1OrderbookResponse(pub Vec<GetV1OrderbookResponseItem>);
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct GetV1OrderbookResponseItem {
