@@ -69,7 +69,7 @@ pub struct GetFapiV1Trades {
 }
 
 #[derive(Clone, Debug, Deserialize)]
-pub struct GetFapiV1TradesResponse(Vec<GetFapiV1TradesResponseItem>);
+pub struct GetFapiV1TradesResponse(pub Vec<GetFapiV1TradesResponseItem>);
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]

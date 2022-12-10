@@ -25,7 +25,7 @@ pub struct GetApiV3BookTicker {
 }
 
 #[derive(Clone, Debug, Deserialize)]
-pub struct GetApiV3BookTickerResponse(Vec<GetApiV3BookTickerResponseItem>);
+pub struct GetApiV3BookTickerResponse(pub Vec<GetApiV3BookTickerResponseItem>);
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
