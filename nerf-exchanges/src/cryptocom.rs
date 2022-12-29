@@ -159,7 +159,12 @@ where
     fn try_from_response(x: hyper::Response<hyper::Body>) -> Self::TryFromResponseFuture {
         #[derive(Clone, Debug, Deserialize)]
         struct CryptocomResponse<T> {
-            pub data: T,
+            result: CryptocomResponseResult<T>,
+        }
+
+        #[derive(Clone, Debug, Deserialize)]
+        struct CryptocomResponseResult<T> {
+            data: T,
         }
 
         #[derive(Debug, Deserialize)]
@@ -174,7 +179,7 @@ where
                     hyper::body::Buf::reader(hyper::body::aggregate(x).await?),
                 )
                 .map_err(Error::DeserializeJsonBody)?;
-                Ok(resp.data)
+                Ok(resp.result.data)
             })
         } else {
             Box::pin(async {
