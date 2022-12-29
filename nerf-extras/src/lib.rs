@@ -48,6 +48,10 @@ fn consume_by_quote(units: &[OrderbookItem], mut quote_qty: Decimal) -> (Decimal
             return (r, None);
         }
 
+        if unit.price.is_zero() {
+            break;
+        }
+
         let to_commit = quote_qty.min(unit.price * unit.quantity);
         quote_qty -= to_commit;
         r += to_commit / unit.price;
