@@ -226,7 +226,7 @@ impl common::IntoCommon for Vec<GetV5MarketTickerResponseItem> {
     fn into_common(self) -> Self::Output {
         self.into_iter()
             .filter_map(|x| {
-                let (base, quote) = x.inst_id.split_once('_')?;
+                let (base, quote) = x.inst_id.split_once('-')?;
                 Some((
                     format!("spot:{base}/{quote}").into(),
                     common::Ticker::new(x.bid_px, x.ask_px),
