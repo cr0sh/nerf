@@ -342,7 +342,7 @@ pub struct GetPosition {
 pub type BoxedServiceFuture<'a, S, Request> =
     Pin<Box<dyn Future<Output = <<S as tower::Service<Request>>::Future as Future>::Output> + 'a>>;
 
-/// A special type to indicate request is unsupported, used on [`CommonOpsService`]'s associated type
+/// A special type to indicate a request is unsupported, used on [`CommonOpsService`]'s associated type
 ///
 /// May be migrated into alias of `!` once the `never` type is stabilized.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
