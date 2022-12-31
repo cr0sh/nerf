@@ -1,5 +1,7 @@
 use rust_decimal::Decimal;
 
+use super::Side;
+
 /// Conversion into common types.
 pub trait IntoCommon {
     type Output;
@@ -58,4 +60,18 @@ impl OrderbookItem {
     pub fn new(price: Decimal, quantity: Decimal) -> Self {
         Self { price, quantity }
     }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct Trade {
+    pub price: Decimal,
+    pub quantity: Decimal,
+    pub taker_side: Side,
+    pub quantity_units: TradeQuantityUnits,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TradeQuantityUnits {
+    Base,
+    Quote,
 }
