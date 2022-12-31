@@ -15,6 +15,8 @@ pub enum Error {
     SerializeJsonBody(serde_json::Error),
     #[error("cannot serialize request to URL-encoded parameters: {0}")]
     SerializeUrlencodedBody(serde_urlencoded::ser::Error),
+    #[error("cannot serialize request to URL-encoded parameters: {0}")]
+    SerializeUrlencodedBodyUpbit(serde_urlencoded_upbit::ser::Error),
     #[error("cannot construct http::Request: {0}")]
     ConstructHttpRequest(nerf::http::Error),
     #[error("cannot deserialize response into JSON: {0}")]

@@ -15,7 +15,6 @@ nerf-exchanges = { version = "0.1.0", path = "../nerf-exchanges" }
 rust_decimal = "1.25.0"
 serde = { version = "1.0.142", features = ["derive"] }
 serde_json = "1.0.83"
-serde_urlencoded = { git = "https://github.com/cr0sh/serde_urlencoded.git", rev = "cf920b9c30a745b4c5132c94c099df61d767cb8b"}
 serde_with = "2.1.0"
 thiserror = "1.0.32"
 tokio = { version = "1.20.1", features = ["rt", "time"] }

@@ -264,8 +264,8 @@ where
     }
 
     fn try_into_request(&mut self, x: T) -> Result<hyper::Request<hyper::Body>, Self::Error> {
-        let query = serde_urlencoded::to_string(&x)
-            .map_err(Error::SerializeUrlencodedBody)?
+        let query = serde_urlencoded_upbit::to_string(&x)
+            .map_err(Error::SerializeUrlencodedBodyUpbit)?
             .replace("%5B", "[")
             .replace("%5D", "]");
         if x.method() == Method::GET {
