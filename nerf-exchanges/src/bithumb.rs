@@ -237,6 +237,7 @@ impl common::IntoCommon for GetPublicOrderbookResponse {
                     quantity: x.quantity,
                 })
                 .collect(),
+            Some(self.timestamp),
         )
     }
 }
@@ -260,6 +261,7 @@ impl common::IntoCommon for GetPublicOrderbookAllResponseItem {
                     quantity: x.quantity,
                 })
                 .collect(),
+            None,
         )
     }
 }

@@ -280,6 +280,7 @@ impl common::IntoCommon for (GetPublicGetBookResponse,) {
                     quantity: x.quantity,
                 })
                 .collect(),
+            Some(self.0.timestamp),
         )
     }
 }

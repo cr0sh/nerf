@@ -357,6 +357,7 @@ impl IntoCommon for GetApiV3DepthResponse {
                 .iter()
                 .map(|&BinanceOrderbookItem { price, quantity }| OrderbookItem { price, quantity })
                 .collect(),
+            None,
         )
     }
 }

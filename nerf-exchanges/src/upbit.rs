@@ -601,7 +601,7 @@ impl IntoCommon for GetV1OrderbookResponseItem {
             )
             .unzip();
 
-        common::Orderbook::new(bids, asks)
+        common::Orderbook::new(bids, asks, Some(self.timestamp))
     }
 }
 

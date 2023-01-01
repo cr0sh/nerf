@@ -255,6 +255,7 @@ impl common::IntoCommon for GetV5MarketBooksResponse {
                     quantity: x.quantity,
                 })
                 .collect(),
+            Some(self.ts),
         )
     }
 }

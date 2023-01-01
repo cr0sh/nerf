@@ -2,6 +2,7 @@
 
 use std::{convert::Infallible, fmt::Display, future::Future, pin::Pin, str::FromStr};
 
+use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -161,11 +162,20 @@ impl Ticker {
 pub struct Orderbook {
     bids: Vec<OrderbookItem>,
     asks: Vec<OrderbookItem>,
+    pub timestamp: Option<DateTime<Utc>>,
 }
 
 impl Orderbook {
-    pub fn new(bids: Vec<OrderbookItem>, asks: Vec<OrderbookItem>) -> Self {
-        Self { bids, asks }
+    pub fn new(
+        bids: Vec<OrderbookItem>,
+        asks: Vec<OrderbookItem>,
+        timestamp: Option<DateTime<Utc>>,
+    ) -> Self {
+        Self {
+            bids,
+            asks,
+            timestamp,
+        }
     }
 
     pub fn bids(&self) -> &[OrderbookItem] {
@@ -194,6 +204,7 @@ pub struct Trade {
     pub quantity: Decimal,
     pub taker_side: Side,
     pub quantity_units: TradeQuantityUnits,
+    pub timestamp: Option<DateTime<Utc>>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

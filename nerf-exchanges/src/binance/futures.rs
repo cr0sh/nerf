@@ -484,6 +484,7 @@ impl IntoCommon for GetFapiV1DepthResponse {
                 .iter()
                 .map(|&BinanceOrderbookItem { price, quantity }| OrderbookItem { price, quantity })
                 .collect(),
+            Some(self.transaction_time),
         )
     }
 }
