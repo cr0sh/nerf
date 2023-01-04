@@ -5,6 +5,7 @@ use std::{convert::Infallible, fmt::Display, future::Future, pin::Pin, str::From
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 use thiserror::Error;
 
 use nerf::{ClientService, ReadyCall};
@@ -129,7 +130,8 @@ impl Display for MarketKind {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum Side {
     Buy,
     Sell,
@@ -158,7 +160,8 @@ impl Ticker {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[skip_serializing_none]
 pub struct Orderbook {
     bids: Vec<OrderbookItem>,
     asks: Vec<OrderbookItem>,
@@ -186,7 +189,7 @@ impl Orderbook {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct OrderbookItem {
     pub price: Decimal,
     pub quantity: Decimal,
@@ -198,7 +201,7 @@ impl OrderbookItem {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct Trade {
     pub price: Decimal,
     pub quantity: Decimal,
@@ -207,7 +210,8 @@ pub struct Trade {
     pub timestamp: Option<DateTime<Utc>>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum TradeQuantityUnits {
     Base,
     Quote,
