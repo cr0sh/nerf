@@ -354,8 +354,11 @@ pub struct GetPosition {
     pub market: Market,
 }
 
-pub type BoxedServiceFuture<'a, S, Request> =
-    Pin<Box<dyn Future<Output = <<S as tower::Service<Request>>::Future as Future>::Output> + 'a>>;
+pub type BoxedServiceFuture<'a, S, Request> = Pin<
+    Box<
+        dyn Future<Output = <<S as tower::Service<Request>>::Future as Future>::Output> + Send + 'a,
+    >,
+>;
 
 /// A special type to indicate a request is unsupported, used on [`CommonOpsService`]'s associated type
 ///
@@ -493,25 +496,6 @@ pub trait CommonOpsService:
     + tower::Service<Self::CancelAllOrdersRequest>
     + tower::Service<Self::GetBalanceRequest>
     + tower::Service<Self::GetPositionRequest>
-where
-    <Self as tower::Service<Self::GetTradesRequest>>::Error:
-        From<<Self::GetTradesRequest as TryFrom<GetTrades>>::Error>,
-    <Self as tower::Service<Self::GetOrderbookRequest>>::Error:
-        From<<Self::GetOrderbookRequest as TryFrom<GetOrderbook>>::Error>,
-    <Self as tower::Service<Self::GetOrdersRequest>>::Error:
-        From<<Self::GetOrdersRequest as TryFrom<GetOrders>>::Error>,
-    <Self as tower::Service<Self::GetAllOrdersRequest>>::Error:
-        From<<Self::GetAllOrdersRequest as TryFrom<GetAllOrders>>::Error>,
-    <Self as tower::Service<Self::PlaceOrderRequest>>::Error:
-        From<<Self::PlaceOrderRequest as TryFrom<PlaceOrder>>::Error>,
-    <Self as tower::Service<Self::CancelOrderRequest>>::Error:
-        From<<Self::CancelOrderRequest as TryFrom<CancelOrder>>::Error>,
-    <Self as tower::Service<Self::CancelAllOrdersRequest>>::Error:
-        From<<Self::CancelAllOrdersRequest as TryFrom<CancelAllOrders>>::Error>,
-    <Self as tower::Service<Self::GetBalanceRequest>>::Error:
-        From<<Self::GetBalanceRequest as TryFrom<GetBalance>>::Error>,
-    <Self as tower::Service<Self::GetPositionRequest>>::Error:
-        From<<Self::GetPositionRequest as TryFrom<GetPosition>>::Error>,
 {
     fn get_tickers(&mut self) -> BoxedServiceFuture<Self, Self::GetTickersRequest>;
     fn get_trades(
@@ -556,7 +540,9 @@ where
         + tower::Service<Self::CancelOrderRequest>
         + tower::Service<Self::CancelAllOrdersRequest>
         + tower::Service<Self::GetBalanceRequest>
-        + tower::Service<Self::GetPositionRequest>,
+        + tower::Service<Self::GetPositionRequest>
+        + Send
+        + 'static,
     <T as tower::Service<T::GetTickersRequest>>::Error:
         From<<T::GetTickersRequest as TryFrom<GetTickers>>::Error>,
     <T as tower::Service<T::GetTradesRequest>>::Error:
@@ -577,6 +563,36 @@ where
         From<<T::GetBalanceRequest as TryFrom<GetBalance>>::Error>,
     <T as tower::Service<T::GetPositionRequest>>::Error:
         From<<T::GetPositionRequest as TryFrom<GetPosition>>::Error>,
+    <T as CommonOps>::GetTickersRequest: Send,
+    <T as tower::Service<<T as CommonOps>::GetTickersRequest>>::Future: Send,
+    <<T as CommonOps>::GetTickersRequest as TryFrom<GetTickers>>::Error: Send,
+    <T as CommonOps>::GetTradesRequest: Send,
+    <T as tower::Service<<T as CommonOps>::GetTradesRequest>>::Future: Send,
+    <<T as CommonOps>::GetTradesRequest as TryFrom<GetTrades>>::Error: Send,
+    <T as CommonOps>::GetOrderbookRequest: Send,
+    <T as tower::Service<<T as CommonOps>::GetOrderbookRequest>>::Future: Send,
+    <<T as CommonOps>::GetOrderbookRequest as TryFrom<GetOrderbook>>::Error: Send,
+    <T as CommonOps>::GetOrdersRequest: Send,
+    <T as tower::Service<<T as CommonOps>::GetOrdersRequest>>::Future: Send,
+    <<T as CommonOps>::GetOrdersRequest as TryFrom<GetOrders>>::Error: Send,
+    <T as CommonOps>::GetAllOrdersRequest: Send,
+    <T as tower::Service<<T as CommonOps>::GetAllOrdersRequest>>::Future: Send,
+    <<T as CommonOps>::GetAllOrdersRequest as TryFrom<GetAllOrders>>::Error: Send,
+    <T as CommonOps>::PlaceOrderRequest: Send,
+    <T as tower::Service<<T as CommonOps>::PlaceOrderRequest>>::Future: Send,
+    <<T as CommonOps>::PlaceOrderRequest as TryFrom<PlaceOrder>>::Error: Send,
+    <T as CommonOps>::CancelOrderRequest: Send,
+    <T as tower::Service<<T as CommonOps>::CancelOrderRequest>>::Future: Send,
+    <<T as CommonOps>::CancelOrderRequest as TryFrom<CancelOrder>>::Error: Send,
+    <T as CommonOps>::CancelAllOrdersRequest: Send,
+    <T as tower::Service<<T as CommonOps>::CancelAllOrdersRequest>>::Future: Send,
+    <<T as CommonOps>::CancelAllOrdersRequest as TryFrom<CancelAllOrders>>::Error: Send,
+    <T as CommonOps>::GetBalanceRequest: Send,
+    <T as tower::Service<<T as CommonOps>::GetBalanceRequest>>::Future: Send,
+    <<T as CommonOps>::GetBalanceRequest as TryFrom<GetBalance>>::Error: Send,
+    <T as CommonOps>::GetPositionRequest: Send,
+    <T as tower::Service<<T as CommonOps>::GetPositionRequest>>::Future: Send,
+    <<T as CommonOps>::GetPositionRequest as TryFrom<GetPosition>>::Error: Send,
 {
     fn get_tickers(&mut self) -> BoxedServiceFuture<Self, Self::GetTickersRequest> {
         Box::pin(async move {
