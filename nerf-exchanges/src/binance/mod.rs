@@ -179,7 +179,7 @@ where
 
 fn try_from_response<T>(
     x: hyper::Response<hyper::Body>,
-) -> Pin<Box<dyn Future<Output = Result<T::Response, Error>>>>
+) -> Pin<Box<dyn Future<Output = Result<T::Response, Error>> + Send + Sync + 'static>>
 where
     T: Request + HttpRequest + Sealed + Signer + Serialize + Debug,
     T::Response: DeserializeOwned,
