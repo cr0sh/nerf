@@ -89,15 +89,18 @@ impl<Req, T, S> tower::Service<Req> for ClientService<T>
 where
     Req: Request,
     T: Client<Req, Service = S>,
-    T::Error: From<S::Error> + 'static,
+    T::TryFromResponseFuture: Send,
+    T::Error: From<S::Error> + Send + 'static,
     S: tower::Service<hyper::Request<hyper::Body>, Response = hyper::Response<hyper::Body>>,
-    S::Future: 'static,
+    S::Future: Send + 'static,
+    S::Error: Send,
 {
     type Response = Req::Response;
 
     type Error = T::Error;
 
-    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>>>>;
+    type Future =
+        Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
 
     fn poll_ready(
         &mut self,
