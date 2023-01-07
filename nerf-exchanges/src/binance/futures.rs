@@ -639,7 +639,8 @@ where
 
     type Error = Error;
 
-    type TryFromResponseFuture = Pin<Box<dyn Future<Output = Result<T::Response, Self::Error>>>>;
+    type TryFromResponseFuture =
+        Pin<Box<dyn Future<Output = Result<T::Response, Self::Error>> + Send + Sync + 'static>>;
 
     fn service(&mut self) -> &mut Self::Service {
         &mut self.client.0
