@@ -1,6 +1,8 @@
 #![cfg(test)]
 
-use std::{error::Error, fmt::Debug, future::Future, io::Read, pin::Pin, sync::Arc};
+use std::{
+    convert::Infallible, error::Error, fmt::Debug, future::Future, io::Read, pin::Pin, sync::Arc,
+};
 
 use axum::{routing, Extension, Json};
 use bytes::Buf;
@@ -50,9 +52,10 @@ where
 {
     type Service = S;
 
-    type Error = Box<dyn Error>;
+    type Error = Box<dyn Error + Send + Sync + 'static>;
 
-    type TryFromResponseFuture = Pin<Box<dyn Future<Output = Result<T::Response, Self::Error>>>>;
+    type TryFromResponseFuture =
+        Pin<Box<dyn Future<Output = Result<T::Response, Self::Error>> + Send + Sync + 'static>>;
 
     fn service(&mut self) -> &mut Self::Service {
         &mut self.inner
@@ -94,11 +97,8 @@ where
     }
 }
 
-fn create_service() -> impl tower::Service<
-    hyper::Request<hyper::Body>,
-    Response = hyper::Response<hyper::Body>,
-    Error = hyper::Error,
-> {
+fn create_service(
+) -> tower::util::BoxService<http::Request<hyper::Body>, http::Response<hyper::Body>, Infallible> {
     let map = Arc::new(DashMap::<String, Item>::new());
     let router = axum::Router::new()
         .route("/api", routing::get(get_items).put(put_item))
