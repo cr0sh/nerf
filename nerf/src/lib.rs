@@ -44,11 +44,11 @@ pub trait HttpRequest {
 pub trait Client<Req: Request> {
     /// The service wrapped by the client.
     type Service;
-    type Error;
+    type Error: Send + 'static;
     /// A [Future] returned by [try_from_response].
     ///
     /// [try_from_response]: Client::try_from_response
-    type TryFromResponseFuture: Future<Output = Result<Req::Response, Self::Error>>;
+    type TryFromResponseFuture: Future<Output = Result<Req::Response, Self::Error>> + Send;
 
     /// Returns a mutable reference of the inner [Service] implementor.
     ///
@@ -89,8 +89,7 @@ impl<Req, T, S> tower::Service<Req> for ClientService<T>
 where
     Req: Request,
     T: Client<Req, Service = S>,
-    T::TryFromResponseFuture: Send,
-    T::Error: From<S::Error> + Send + 'static,
+    T::Error: From<S::Error>,
     S: tower::Service<hyper::Request<hyper::Body>, Response = hyper::Response<hyper::Body>>,
     S::Future: Send + 'static,
     S::Error: Send,
