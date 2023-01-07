@@ -378,6 +378,100 @@ pub struct DeleteFapiV1AllOpenOrdersResponse {
     pub msg: String,
 }
 
+#[derive(Clone, Debug, Serialize)]
+pub enum CandleInterval {
+    #[serde(rename = "1m")]
+    OneMinute,
+    #[serde(rename = "3m")]
+    ThreeMinutes,
+    #[serde(rename = "5m")]
+    FiveMinutes,
+    #[serde(rename = "15m")]
+    FifteenMinutes,
+    #[serde(rename = "30m")]
+    ThirtyMinutes,
+    #[serde(rename = "1h")]
+    OneHour,
+    #[serde(rename = "2h")]
+    TwoHours,
+    #[serde(rename = "4h")]
+    FourHours,
+    #[serde(rename = "6h")]
+    SixHours,
+    #[serde(rename = "8h")]
+    EightHours,
+    #[serde(rename = "12h")]
+    TwelveHours,
+    #[serde(rename = "1d")]
+    OneDay,
+    #[serde(rename = "3d")]
+    ThreeDays,
+    #[serde(rename = "1w")]
+    OneWeek,
+    #[serde(rename = "1M")]
+    OneMonth,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[get("https://fapi.binance.com/fapi/v1/klines", response = GetFapiV1KlinesResponse)]
+#[tag(Signer = Disabled)]
+#[serde(rename_all = "camelCase")]
+#[skip_serializing_none]
+pub struct GetFapiV1Klines {
+    pub symbol: String,
+    pub interval: CandleInterval,
+    pub start_time: Option<DateTime<Utc>>,
+    pub end_time: Option<DateTime<Utc>>,
+    pub limit: Option<u64>,
+}
+
+#[derive(Clone, Debug)]
+pub struct GetFapiV1KlinesResponse {
+    pub open_timestamp: DateTime<Utc>,
+    pub open: Decimal,
+    pub high: Decimal,
+    pub low: Decimal,
+    pub close: Decimal,
+    pub volume: Decimal,
+    pub close_timestamp: DateTime<Utc>,
+    pub num_trades: u64,
+    pub quote_asset_vol: Decimal,
+    pub base_asset_vol: Decimal,
+}
+
+impl<'de> Deserialize<'de> for GetFapiV1KlinesResponse {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let (
+            open_timestamp,
+            open,
+            high,
+            low,
+            close,
+            volume,
+            close_timestamp,
+            num_trades,
+            quote_asset_vol,
+            base_asset_vol,
+        ) = Deserialize::deserialize(deserializer)?;
+
+        Ok(Self {
+            open_timestamp,
+            open,
+            high,
+            low,
+            close,
+            volume,
+            close_timestamp,
+            num_trades,
+            quote_asset_vol,
+            base_asset_vol,
+        })
+    }
+}
+
 impl From<common::GetTrades> for GetFapiV1Trades {
     fn from(x: common::GetTrades) -> Self {
         Self {
@@ -545,8 +639,7 @@ where
 
     type Error = Error;
 
-    type TryFromResponseFuture =
-        Pin<Box<dyn Future<Output = Result<T::Response, Self::Error>> + Send + Sync + 'static>>;
+    type TryFromResponseFuture = Pin<Box<dyn Future<Output = Result<T::Response, Self::Error>>>>;
 
     fn service(&mut self) -> &mut Self::Service {
         &mut self.client.0
