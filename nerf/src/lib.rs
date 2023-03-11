@@ -58,7 +58,7 @@ pub trait Client<Req: Request> {
     fn try_into_request(&mut self, x: Req) -> Result<hyper::Request<hyper::Body>, Self::Error>;
 
     // FIXME: this should receive `&mut self` as `try_into_request` does, but the borrowck becomes unhappy
-    // because  `tower::Service::Future` cannot hold a lifetime. Once GAT lands onto stable and tower::Service
+    // because  `tower::Service::Future` cannot hold a lifetime. Once tower 1.0 releases and tower::Service
     // GAT-ifies, we can consider adding `&mut self` to this method.
     fn try_from_response(x: hyper::Response<hyper::Body>) -> Self::TryFromResponseFuture;
 }
