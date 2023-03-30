@@ -50,11 +50,12 @@ fn empty_as_zero<'de, D>(deserializer: D) -> Result<Decimal, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let s = <&str>::deserialize(deserializer)?;
+    let s = String::deserialize(deserializer)?;
     if s.is_empty() {
         return Ok(Decimal::ZERO);
     }
-    <Decimal as Deserialize>::deserialize(s.into_deserializer())
+    let deserializer = s.into_deserializer();
+    <Decimal as Deserialize>::deserialize(deserializer)
 }
 
 #[derive(Clone, Debug, Deserialize)]
