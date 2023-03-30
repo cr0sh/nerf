@@ -246,7 +246,7 @@ impl common::IntoCommon for Vec<GetV5MarketTickerResponseItem> {
                 let (base, quote) = x.inst_id.split_once('-')?;
                 Some((
                     format!("spot:{base}/{quote}").into(),
-                    common::Ticker::new(x.bid_px, x.ask_px),
+                    common::Ticker::new(x.bid_px, x.ask_px, None),
                 ))
             })
             .collect()

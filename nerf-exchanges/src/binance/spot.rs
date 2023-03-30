@@ -337,7 +337,7 @@ impl IntoCommon for GetApiV3BookTickerResponse {
                     .or_else(|| split_end(&x.symbol, "BUSD"))?;
                 Some((
                     common::Market::from(format!("spot:{base}/{quote}")),
-                    common::Ticker::new(x.bid_price, x.ask_price),
+                    common::Ticker::new(x.bid_price, x.ask_price, None),
                 ))
             })
             .collect()

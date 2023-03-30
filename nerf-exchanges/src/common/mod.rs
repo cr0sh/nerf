@@ -141,13 +141,15 @@ pub enum Side {
 pub struct Ticker {
     bid_price: Decimal,
     ask_price: Decimal,
+    pub timestamp: Option<DateTime<Utc>>,
 }
 
 impl Ticker {
-    pub fn new(bid_price: Decimal, ask_price: Decimal) -> Self {
+    pub fn new(bid_price: Decimal, ask_price: Decimal, timestamp: Option<DateTime<Utc>>) -> Self {
         Self {
             bid_price,
             ask_price,
+            timestamp,
         }
     }
 

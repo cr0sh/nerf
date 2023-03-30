@@ -253,6 +253,7 @@ impl common::IntoCommon for Vec<GetPublicGetTickerResponseItem> {
                     common::Ticker::new(
                         x.best_bid.expect("empty orderbook"),
                         x.best_ask.expect("empty orderbook"),
+                        Some(x.timestamp),
                     ),
                 ))
             })
