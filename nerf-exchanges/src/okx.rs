@@ -10,7 +10,10 @@ use chrono::{DateTime, Utc};
 use http::Method;
 use nerf::{get, tag, Client, HttpRequest, Request};
 use rust_decimal::Decimal;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{
+    de::{DeserializeOwned, IntoDeserializer},
+    Deserialize, Deserializer, Serialize,
+};
 use serde_with::skip_serializing_none;
 
 #[skip_serializing_none]
@@ -43,6 +46,17 @@ pub struct GetV5MarketTickers {
     pub inst_family: Option<String>,
 }
 
+fn empty_as_zero<'de, D>(deserializer: D) -> Result<Decimal, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s = <&str>::deserialize(deserializer)?;
+    if s.is_empty() {
+        return Ok(Decimal::ZERO);
+    }
+    <Decimal as Deserialize>::deserialize(s.into_deserializer())
+}
+
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GetV5MarketTickerResponseItem {
@@ -50,8 +64,10 @@ pub struct GetV5MarketTickerResponseItem {
     pub inst_id: String,
     pub last: Decimal,
     pub last_sz: Decimal,
+    #[serde(deserialize_with = "empty_as_zero")]
     pub ask_px: Decimal,
     pub ask_sz: Decimal,
+    #[serde(deserialize_with = "empty_as_zero")]
     pub bid_px: Decimal,
     pub bid_sz: Decimal,
     #[serde(with = "ts_milliseconds_str")]
