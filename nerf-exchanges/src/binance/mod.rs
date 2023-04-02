@@ -207,6 +207,12 @@ where
     })
 }
 
+fn split_end<'a>(symbol: &'a str, end: &'static str) -> Option<(&'a str, &'a str)> {
+    symbol
+        .strip_suffix(end)
+        .map(|x| (x, symbol.strip_prefix(x).unwrap()))
+}
+
 mod __private {
     use crate::common::Unsupported;
 

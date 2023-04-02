@@ -1,4 +1,4 @@
-use std::{fmt::Debug, future::Future, pin::Pin};
+use std::{collections::HashMap, fmt::Debug, future::Future, pin::Pin};
 
 use chrono::{serde::ts_milliseconds, DateTime, Utc};
 use nerf::{delete, get, post, tag, Client, HttpRequest, Request};
@@ -8,13 +8,13 @@ use serde_with::skip_serializing_none;
 
 use crate::{
     common::{
-        self, CommonOps, Disabled, IntoCommon, Orderbook, OrderbookItem, Private, Signer,
-        Unsupported,
+        self, CommonOps, Disabled, IntoCommon, Market, Orderbook, OrderbookItem, Private, Signer,
+        Ticker, Unsupported,
     },
     Error, KeySecretAuthentication as Authentication,
 };
 
-use super::{BinanceOrderbookItem, OrderType, Side, TimeInForce, __private::Sealed};
+use super::{BinanceOrderbookItem, OrderType, Side, TimeInForce, __private::Sealed, split_end};
 
 fn bool_str<S>(x: &bool, serializer: S) -> Result<S::Ok, S::Error>
 where
@@ -57,6 +57,30 @@ pub enum PositionSide {
     Both,
     Long,
     Short,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[get("https://fapi.binance.com/fapi/v1/ticker/bookTicker", response = GetFapiV1TickerBooktickerResponse)]
+#[tag(Signer = Disabled)]
+pub struct GetFapiV1TickerBookticker {
+    pub symbol: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(untagged)]
+pub enum GetFapiV1TickerBooktickerResponse {
+    Single(GetFapiV1TickerBooktickerResponseItem),
+    Multiple(Vec<GetFapiV1TickerBooktickerResponseItem>),
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetFapiV1TickerBooktickerResponseItem {
+    pub symbol: String,
+    pub bid_price: Decimal,
+    pub bid_qty: Decimal,
+    pub ask_price: Decimal,
+    pub ask_qty: Decimal,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -472,6 +496,12 @@ impl<'de> Deserialize<'de> for GetFapiV1KlinesResponse {
     }
 }
 
+impl From<common::GetTickers> for GetFapiV1TickerBookticker {
+    fn from(_: common::GetTickers) -> Self {
+        Self { symbol: None }
+    }
+}
+
 impl From<common::GetTrades> for GetFapiV1Trades {
     fn from(x: common::GetTrades) -> Self {
         Self {
@@ -562,6 +592,30 @@ impl From<common::CancelOrder> for DeleteFapiV1Order {
             order_id: Some(x.order_id.parse().expect("cannot parse order_id")),
             orig_client_order_id: None,
         }
+    }
+}
+
+impl IntoCommon for GetFapiV1TickerBooktickerResponse {
+    type Output = HashMap<Market, Ticker>;
+
+    fn into_common(self) -> Self::Output {
+        let tickers = match self {
+            GetFapiV1TickerBooktickerResponse::Single(x) => vec![x],
+            GetFapiV1TickerBooktickerResponse::Multiple(x) => x,
+        };
+
+        tickers
+            .into_iter()
+            .filter_map(|x| {
+                let (base, quote) = split_end(&x.symbol, "BTC")
+                    .or_else(|| split_end(&x.symbol, "USDT"))
+                    .or_else(|| split_end(&x.symbol, "BUSD"))?;
+                Some((
+                    common::Market::from(format!("spot:{base}/{quote}")),
+                    common::Ticker::new(x.bid_price, x.ask_price, None),
+                ))
+            })
+            .collect()
     }
 }
 
@@ -656,7 +710,7 @@ where
 }
 
 impl<S> CommonOps for BinanceFuturesClient<S> {
-    type GetTickersRequest = Unsupported;
+    type GetTickersRequest = GetFapiV1TickerBookticker;
 
     type GetTradesRequest = GetFapiV1Trades;
 
@@ -697,7 +751,7 @@ impl<S> tower::Service<Unsupported> for BinanceFuturesClient<S> {
 }
 
 impl<S> CommonOps for BinanceFuturesPrivateClient<S> {
-    type GetTickersRequest = Unsupported;
+    type GetTickersRequest = GetFapiV1TickerBookticker;
 
     type GetTradesRequest = GetFapiV1Trades;
 

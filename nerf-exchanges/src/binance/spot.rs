@@ -14,7 +14,7 @@ use crate::{
     KeySecretAuthentication as Authentication,
 };
 
-use super::{Error, OrderType, Side, TimeInForce, __private::Sealed};
+use super::{Error, OrderType, Side, TimeInForce, __private::Sealed, split_end};
 
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize)]
@@ -323,12 +323,6 @@ impl IntoCommon for GetApiV3BookTickerResponse {
     type Output = HashMap<common::Market, common::Ticker>;
 
     fn into_common(self) -> Self::Output {
-        fn split_end<'a>(symbol: &'a str, end: &'static str) -> Option<(&'a str, &'a str)> {
-            symbol
-                .strip_suffix(end)
-                .map(|x| (x, symbol.strip_prefix(x).unwrap()))
-        }
-
         self.0
             .into_iter()
             .filter_map(|x| {
