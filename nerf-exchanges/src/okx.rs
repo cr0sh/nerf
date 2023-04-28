@@ -126,6 +126,72 @@ impl<S> OkxClient<S> {
     pub fn new(x: S) -> Self {
         Self(x)
     }
+
+    pub fn with_auth(self, authentication: Authentication) -> OkxPrivateClient<S> {
+        OkxPrivateClient {
+            client: self,
+            authentication,
+        }
+    }
+}
+
+pub struct Authentication {
+    key: String,
+    secret: String,
+    passphrase: String,
+}
+
+impl Authentication {
+    pub fn new(key: String, secret: String, passphrase: String) -> Self {
+        Self {
+            key,
+            secret,
+            passphrase,
+        }
+    }
+}
+
+pub struct OkxPrivateClient<S> {
+    client: OkxClient<S>,
+    authentication: Authentication,
+}
+
+fn try_from_response<T>(
+    x: hyper::Response<hyper::Body>,
+) -> Pin<Box<dyn Future<Output = Result<T::Response, Error>> + Send + Sync + 'static>>
+where
+    T: Request,
+    T::Response: DeserializeOwned,
+{
+    #[derive(Debug, Deserialize)]
+    struct OkxResponse<T> {
+        data: T,
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct OkxError {
+        code: String,
+        msg: String,
+    }
+
+    if x.status().is_success() {
+        Box::pin(async {
+            let resp: OkxResponse<T::Response> =
+                serde_json::from_reader(hyper::body::Buf::reader(hyper::body::aggregate(x).await?))
+                    .map_err(Error::DeserializeJsonBody)?;
+            Ok(resp.data)
+        })
+    } else {
+        Box::pin(async {
+            let resp: OkxError =
+                serde_json::from_reader(hyper::body::Buf::reader(hyper::body::aggregate(x).await?))
+                    .map_err(Error::DeserializeJsonBody)?;
+            Err(Error::RequestFailed {
+                code: Some(resp.code),
+                msg: Some(resp.msg),
+            })
+        })
+    }
 }
 
 impl<T, S> Client<T> for OkxClient<S>
@@ -166,37 +232,77 @@ where
     }
 
     fn try_from_response(x: hyper::Response<hyper::Body>) -> Self::TryFromResponseFuture {
-        #[derive(Debug, Deserialize)]
-        struct OkxResponse<T> {
-            data: T,
-        }
+        try_from_response::<T>(x)
+    }
+}
 
-        #[derive(Debug, Deserialize)]
-        struct OkxError {
-            code: String,
-            msg: String,
-        }
+impl<T, S> Client<T> for OkxPrivateClient<S>
+where
+    T: Request + HttpRequest + Sealed + Signer + Serialize + Debug,
+    T::Response: DeserializeOwned,
+{
+    type Service = S;
 
-        if x.status().is_success() {
-            Box::pin(async {
-                let resp: OkxResponse<T::Response> = serde_json::from_reader(
-                    hyper::body::Buf::reader(hyper::body::aggregate(x).await?),
-                )
-                .map_err(Error::DeserializeJsonBody)?;
-                Ok(resp.data)
-            })
+    type Error = Error;
+
+    type TryFromResponseFuture =
+        Pin<Box<dyn Future<Output = Result<T::Response, Self::Error>> + Send + Sync + 'static>>;
+
+    fn service(&mut self) -> &mut Self::Service {
+        &mut self.client.0
+    }
+
+    fn try_into_request(&mut self, x: T) -> Result<hyper::Request<hyper::Body>, Self::Error> {
+        let query = serde_urlencoded::to_string(&x).map_err(Error::SerializeUrlencodedBody)?;
+        let mut req = if x.method() == Method::GET {
+            let mut req = hyper::Request::new(hyper::Body::empty());
+            let uri = x.uri();
+            assert_eq!(uri.query(), None);
+            req.headers_mut()
+                .append("Accept", "application/json".parse().unwrap());
+            *req.uri_mut() = format!("{}?{}", uri, query.clone()).parse().unwrap();
+            req
         } else {
-            Box::pin(async {
-                let resp: OkxError = serde_json::from_reader(hyper::body::Buf::reader(
-                    hyper::body::aggregate(x).await?,
-                ))
-                .map_err(Error::DeserializeJsonBody)?;
-                Err(Error::RequestFailed {
-                    code: Some(resp.code),
-                    msg: Some(resp.msg),
-                })
-            })
+            let mut req = hyper::Request::new(hyper::Body::from(query.clone()));
+            let uri = x.uri();
+            assert_eq!(uri.query(), None);
+            req.headers_mut()
+                .append("Accept", "application/json".parse().unwrap());
+            *req.uri_mut() = uri;
+            req
+        };
+
+        if <T::Signer as SignerKind>::is_private() {
+            req.headers_mut()
+                .insert("OK-ACCESS-KEY", self.authentication.key.parse().unwrap());
+            let timestamp = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+            req.headers_mut()
+                .insert("OK-ACCESS-TIMESTAMP", timestamp.clone().parse().unwrap());
+            req.headers_mut().insert(
+                "OK-ACCESS-PASSPHRASE",
+                self.authentication.passphrase.parse().unwrap(),
+            );
+            let payload = dbg!(format!(
+                "{}{}{}",
+                timestamp,
+                x.method(),
+                x.uri().path_and_query().unwrap() // Schema always exists
+            ));
+            let mut mac = Hmac::<Sha256>::new_from_slice(self.authentication.secret.as_bytes())
+                .expect("HMAC can take key of any size");
+            mac.update(payload.as_bytes());
+            let result = mac.finalize();
+            req.headers_mut().insert(
+                "OK-ACCESS-SIGN",
+                BASE64_STANDARD.encode(result.into_bytes()).parse().unwrap(),
+            );
         }
+
+        Ok(req)
+    }
+
+    fn try_from_response(x: hyper::Response<hyper::Body>) -> Self::TryFromResponseFuture {
+        try_from_response::<T>(x)
     }
 }
 
@@ -242,6 +348,12 @@ impl From<common::GetOrderbook> for GetV5MarketBooks {
             inst_id,
             sz: x.ticks,
         }
+    }
+}
+
+impl From<common::GetBalance> for GetV5AccountBalance {
+    fn from(_: common::GetBalance) -> Self {
+        Self { ccy: None }
     }
 }
 
@@ -307,6 +419,46 @@ impl<S> common::CommonOps for OkxClient<S> {
     type GetPositionRequest = Unsupported;
 }
 
+impl<S> common::CommonOps for OkxPrivateClient<S> {
+    type GetTickersRequest = GetV5MarketTickers;
+
+    type GetTradesRequest = Unsupported;
+
+    type GetOrderbookRequest = GetV5MarketBooks;
+
+    type GetOrdersRequest = Unsupported;
+
+    type GetAllOrdersRequest = Unsupported;
+
+    type PlaceOrderRequest = Unsupported;
+
+    type CancelOrderRequest = Unsupported;
+
+    type CancelAllOrdersRequest = Unsupported;
+
+    type GetBalanceRequest = GetV5AccountBalance;
+
+    type GetPositionRequest = Unsupported;
+}
+
+impl<S> tower::Service<Unsupported> for OkxPrivateClient<S> {
+    type Response = ::std::convert::Infallible;
+
+    type Error = ::std::convert::Infallible;
+
+    type Future = Unsupported;
+
+    fn poll_ready(
+        &mut self,
+        _cx: &mut ::std::task::Context<'_>,
+    ) -> ::std::task::Poll<Result<(), Self::Error>> {
+        ::std::task::Poll::Ready(Ok(()))
+    }
+
+    fn call(&mut self, req: Unsupported) -> Self::Future {
+        match req {}
+    }
+}
 mod __private {
     use crate::common::Unsupported;
 
