@@ -1,12 +1,13 @@
 use std::{collections::HashMap, fmt::Debug, future::Future, pin::Pin};
 
 use crate::{
-    common::{self, Disabled, Signer, Unsupported},
+    common::{self, Disabled, Private, Signer, SignerKind, Unsupported},
     ts_milliseconds_str, Error,
 };
 use __private::Sealed;
 
 use chrono::{DateTime, Utc};
+use hmac::{Hmac, Mac};
 use http::Method;
 use nerf::{get, tag, Client, HttpRequest, Request};
 use rust_decimal::Decimal;
@@ -15,6 +16,9 @@ use serde::{
     Deserialize, Deserializer, Serialize,
 };
 use serde_with::skip_serializing_none;
+use sha2::Sha256;
+
+use base64::prelude::*;
 
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize)]
@@ -25,7 +29,7 @@ pub struct GetV5MarketTicker {
     pub inst_id: String,
 }
 
-#[derive(Clone, Copy, Debug, Serialize)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum InstType {
     Spot,
@@ -117,6 +121,86 @@ impl<'de> Deserialize<'de> for GetV5MarketBooksResponseItem {
             num_orders,
         })
     }
+}
+
+#[skip_serializing_none]
+#[derive(Clone, Debug, Serialize)]
+#[get("https://aws.okx.com/api/v5/account/balance", response = (GetV5AccountBalanceResponse,))]
+#[tag(Signer = Private)]
+pub struct GetV5AccountBalance {
+    pub ccy: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetV5AccountBalanceResponse {
+    #[serde(with = "ts_milliseconds_str")]
+    pub u_time: DateTime<Utc>,
+    pub total_eq: Decimal,
+    #[serde(deserialize_with = "empty_as_zero")] // TODO: implement empty_as_none and use here
+    pub iso_eq: Decimal,
+    #[serde(deserialize_with = "empty_as_zero")]
+    pub adj_eq: Decimal,
+    #[serde(deserialize_with = "empty_as_zero")]
+    pub ord_froz: Decimal,
+    #[serde(deserialize_with = "empty_as_zero")]
+    pub imr: Decimal,
+    #[serde(deserialize_with = "empty_as_zero")]
+    pub mmr: Decimal,
+    #[serde(deserialize_with = "empty_as_zero")]
+    pub mgn_ratio: Decimal,
+    #[serde(deserialize_with = "empty_as_zero")]
+    pub notional_usd: Decimal,
+    pub details: Vec<GetV5AccountBalanceResponseDetails>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetV5AccountBalanceResponseDetails {
+    pub ccy: String,
+    pub eq: Decimal,
+    #[serde(with = "ts_milliseconds_str")]
+    pub u_time: DateTime<Utc>,
+    #[serde(deserialize_with = "empty_as_zero")]
+    pub iso_eq: Decimal,
+    #[serde(deserialize_with = "empty_as_zero")]
+    pub avail_eq: Decimal,
+    #[serde(deserialize_with = "empty_as_zero")]
+    pub dis_eq: Decimal,
+    #[serde(deserialize_with = "empty_as_zero")]
+    pub avail_bal: Decimal,
+    #[serde(deserialize_with = "empty_as_zero")]
+    pub frozen_bal: Decimal,
+    #[serde(deserialize_with = "empty_as_zero")]
+    pub ord_frozen: Decimal,
+    #[serde(deserialize_with = "empty_as_zero")]
+    pub liab: Decimal,
+    #[serde(deserialize_with = "empty_as_zero")]
+    pub upl: Decimal,
+    #[serde(deserialize_with = "empty_as_zero")]
+    pub upl_liab: Decimal,
+    #[serde(deserialize_with = "empty_as_zero")]
+    pub cross_liab: Decimal,
+    #[serde(deserialize_with = "empty_as_zero")]
+    pub iso_liab: Decimal,
+    #[serde(deserialize_with = "empty_as_zero")]
+    pub mgn_ratio: Decimal,
+    #[serde(deserialize_with = "empty_as_zero")]
+    pub interest: Decimal,
+    #[serde(deserialize_with = "empty_as_zero")]
+    pub twap: Decimal,
+    #[serde(deserialize_with = "empty_as_zero")]
+    pub max_loan: Decimal,
+    #[serde(deserialize_with = "empty_as_zero")]
+    pub eq_usd: Decimal,
+    #[serde(deserialize_with = "empty_as_zero")]
+    pub notional_lever: Decimal,
+    #[serde(deserialize_with = "empty_as_zero")]
+    pub stgy_eq: Decimal,
+    #[serde(deserialize_with = "empty_as_zero")]
+    pub iso_upl: Decimal,
+    #[serde(deserialize_with = "empty_as_zero")]
+    pub spot_in_use_amt: Decimal,
 }
 
 #[derive(Clone, Debug)]
