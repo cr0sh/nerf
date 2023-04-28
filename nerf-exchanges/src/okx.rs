@@ -231,8 +231,15 @@ impl From<common::GetTickers> for GetV5MarketTickers {
 
 impl From<common::GetOrderbook> for GetV5MarketBooks {
     fn from(x: common::GetOrderbook) -> Self {
+        let inst_id = match x.market.kind() {
+            common::MarketKind::Spot => format!("{}-{}", x.market.base(), x.market.quote()),
+            common::MarketKind::UsdMarginedPerpetual => {
+                format!("{}-{}-SWAP", x.market.base(), x.market.quote())
+            }
+            common::MarketKind::CoinMarginedPerpetual => todo!(),
+        };
         Self {
-            inst_id: format!("{}-{}", x.market.base(), x.market.quote()),
+            inst_id,
             sz: x.ticks,
         }
     }
