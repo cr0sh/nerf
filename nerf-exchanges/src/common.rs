@@ -162,7 +162,7 @@ impl Ticker {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[skip_serializing_none]
 pub struct Orderbook {
     bids: Vec<OrderbookItem>,
@@ -191,7 +191,7 @@ impl Orderbook {
     }
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OrderbookItem {
     pub price: Decimal,
     pub quantity: Decimal,
@@ -203,7 +203,7 @@ impl OrderbookItem {
     }
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Trade {
     pub price: Decimal,
     pub quantity: Decimal,
