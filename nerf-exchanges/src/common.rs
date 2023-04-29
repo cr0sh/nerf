@@ -451,6 +451,12 @@ pub trait IntoMarket {
     fn into_market(self) -> Market;
 }
 
+impl IntoMarket for Market {
+    fn into_market(self) -> Market {
+        self
+    }
+}
+
 impl<'a> IntoMarket for &'a str {
     fn into_market(self) -> Market {
         self.parse().expect("cannot parse &str as Market")
