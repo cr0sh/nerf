@@ -447,6 +447,16 @@ impl SignerKind for Private {
     }
 }
 
+pub trait IntoMarket {
+    fn into_market(self) -> Market;
+}
+
+impl<'a> IntoMarket for &'a str {
+    fn into_market(self) -> Market {
+        self.parse().expect("cannot parse &str as Market")
+    }
+}
+
 pub trait CommonOps {
     type GetTickersRequest: TryFrom<GetTickers>;
     type GetTradesRequest: TryFrom<GetTrades>;
@@ -502,31 +512,31 @@ pub trait CommonOpsService:
     fn get_tickers(&mut self) -> BoxedServiceFuture<Self, Self::GetTickersRequest>;
     fn get_trades(
         &mut self,
-        market: impl Into<Market>,
+        market: impl IntoMarket,
     ) -> BoxedServiceFuture<Self, Self::GetTradesRequest>;
     fn get_orderbook(
         &mut self,
-        market: impl Into<Market>,
+        market: impl IntoMarket,
         ticks: Option<u64>,
     ) -> BoxedServiceFuture<Self, Self::GetOrderbookRequest>;
     fn get_orders(&mut self, market: Market) -> BoxedServiceFuture<Self, Self::GetOrdersRequest>;
     fn get_all_orders(&mut self) -> BoxedServiceFuture<Self, Self::GetAllOrdersRequest>;
     fn place_order(
         &mut self,
-        market: impl Into<Market>,
+        market: impl IntoMarket,
         order: Order,
         reduce_only: bool, // only applicable in futures market
     ) -> BoxedServiceFuture<Self, Self::PlaceOrderRequest>;
     fn cancel_order(
         &mut self,
-        market: impl Into<Market>,
+        market: impl IntoMarket,
         order_id: String,
     ) -> BoxedServiceFuture<Self, Self::CancelOrderRequest>;
     fn cancel_all_orders(&mut self) -> BoxedServiceFuture<Self, Self::CancelAllOrdersRequest>;
     fn get_balance(&mut self) -> BoxedServiceFuture<Self, Self::GetBalanceRequest>;
     fn get_position(
         &mut self,
-        market: impl Into<Market>,
+        market: impl IntoMarket,
     ) -> BoxedServiceFuture<Self, Self::GetPositionRequest>;
 }
 
@@ -604,9 +614,9 @@ where
     }
     fn get_trades(
         &mut self,
-        market: impl Into<Market>,
+        market: impl IntoMarket,
     ) -> BoxedServiceFuture<Self, Self::GetTradesRequest> {
-        let market = market.into();
+        let market = market.into_market();
         Box::pin(async move {
             self.ready_call(<Self::GetTradesRequest>::try_from(GetTrades { market })?)
                 .await
@@ -614,10 +624,10 @@ where
     }
     fn get_orderbook(
         &mut self,
-        market: impl Into<Market>,
+        market: impl IntoMarket,
         ticks: Option<u64>,
     ) -> BoxedServiceFuture<Self, Self::GetOrderbookRequest> {
-        let market = market.into();
+        let market = market.into_market();
         Box::pin(async move {
             self.ready_call(<Self::GetOrderbookRequest>::try_from(GetOrderbook {
                 market,
@@ -640,11 +650,11 @@ where
     }
     fn place_order(
         &mut self,
-        market: impl Into<Market>,
+        market: impl IntoMarket,
         order: Order,
         reduce_only: bool,
     ) -> BoxedServiceFuture<Self, Self::PlaceOrderRequest> {
-        let market = market.into();
+        let market = market.into_market();
         Box::pin(async move {
             self.ready_call(<Self::PlaceOrderRequest>::try_from(PlaceOrder {
                 market,
@@ -656,10 +666,10 @@ where
     }
     fn cancel_order(
         &mut self,
-        market: impl Into<Market>,
+        market: impl IntoMarket,
         order_id: String,
     ) -> BoxedServiceFuture<Self, Self::CancelOrderRequest> {
-        let market = market.into();
+        let market = market.into_market();
         Box::pin(async move {
             self.ready_call(<Self::CancelOrderRequest>::try_from(CancelOrder {
                 market,
@@ -682,9 +692,9 @@ where
     }
     fn get_position(
         &mut self,
-        market: impl Into<Market>,
+        market: impl IntoMarket,
     ) -> BoxedServiceFuture<Self, Self::GetPositionRequest> {
-        let market = market.into();
+        let market = market.into_market();
         Box::pin(async move {
             self.ready_call(<Self::GetPositionRequest>::try_from(GetPosition {
                 market,
