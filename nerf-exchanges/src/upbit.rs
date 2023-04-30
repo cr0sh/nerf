@@ -116,7 +116,7 @@ pub struct OrderbookUnit {
 pub struct GetV1Accounts;
 
 #[derive(Clone, Debug, Deserialize)]
-pub struct GetV1AccountsResponse(Vec<GetV1AccountsResponseItem>);
+pub struct GetV1AccountsResponse(pub Vec<GetV1AccountsResponseItem>);
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct GetV1AccountsResponseItem {
