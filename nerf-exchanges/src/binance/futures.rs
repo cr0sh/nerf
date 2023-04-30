@@ -31,12 +31,15 @@ fn deserialize_bool_str<'de, D>(deserializer: D) -> Result<bool, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
-    let s: &str = serde::de::Deserialize::deserialize(deserializer)?;
+    let s: String = serde::de::Deserialize::deserialize(deserializer)?;
 
-    match s {
+    match s.as_str() {
         "true" => Ok(true),
         "false" => Ok(false),
-        _ => Err(serde::de::Error::unknown_variant(s, &["true", "false"])),
+        _ => Err(serde::de::Error::unknown_variant(
+            s.as_str(),
+            &["true", "false"],
+        )),
     }
 }
 
@@ -160,78 +163,28 @@ pub struct GetFapiV2PositionRisk {
 }
 
 #[derive(Clone, Debug, Deserialize)]
-#[serde(untagged)]
 #[allow(clippy::large_enum_variant)]
-pub enum GetFapiV2PositionRiskResponse {
-    Oneway([GetFapiV2PositionRiskResponseOneway; 1]),
-    Hedge([GetFapiV2PositionRiskResponseHedge; 2]),
-}
-
-impl GetFapiV2PositionRiskResponse {
-    /// Returns `None` if the position is in 'hedge mode'.
-    pub fn into_oneway(self) -> Option<GetFapiV2PositionRiskResponseOneway> {
-        match self {
-            Self::Oneway([x]) => Some(x),
-            _ => None,
-        }
-    }
-
-    /// Returns `None` if the position is in 'one-way mode'.
-    pub fn into_hedge(
-        self,
-    ) -> Option<(
-        GetFapiV2PositionRiskResponseHedge,
-        GetFapiV2PositionRiskResponseHedge,
-    )> {
-        match self {
-            Self::Hedge([x, y]) => Some((x, y)),
-            _ => None,
-        }
-    }
-}
+pub struct GetFapiV2PositionRiskResponse(pub Vec<GetFapiV2PositionRiskResponseItem>);
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct GetFapiV2PositionRiskResponseOneway {
+pub struct GetFapiV2PositionRiskResponseItem {
     pub entry_price: Decimal,
     pub margin_type: String,
-    // #[serde(deserialize_with = "deserialize_bool_str")] // FIXME: this causes deserialization failure
-    // pub is_auto_add_margin: bool,
-    pub isolated_margin: Decimal,
-    pub leverage: Decimal,
-    pub liquidation_price: Decimal,
-    pub mark_price: Decimal,
-    pub max_notional_value: Decimal,
-    pub position_amt: Decimal,
-    pub notional: Decimal,
-    pub isolated_wallet: Decimal,
-    pub symbol: String,
-    #[serde(rename = "unRealizedProfit")]
-    pub unrealized_profit: Decimal,
-    pub position_side: String,
-    #[serde(with = "ts_milliseconds")]
-    pub update_time: DateTime<Utc>,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GetFapiV2PositionRiskResponseHedge {
-    pub symbol: String,
-    pub position_amt: Decimal,
-    pub entry_price: Decimal,
-    pub mark_price: Decimal,
-    #[serde(rename = "unRealizedProfit")]
-    pub unrealized_profit: Decimal,
-    pub liquidation_price: Decimal,
-    pub leverage: Decimal,
-    pub max_notional_value: Decimal,
-    pub margin_type: String,
-    pub isolated_margin: Decimal,
     #[serde(deserialize_with = "deserialize_bool_str")]
     pub is_auto_add_margin: bool,
-    pub position_side: String,
+    pub isolated_margin: Decimal,
+    pub leverage: Decimal,
+    pub liquidation_price: Decimal,
+    pub mark_price: Decimal,
+    pub max_notional_value: Decimal,
+    pub position_amt: Decimal,
     pub notional: Decimal,
     pub isolated_wallet: Decimal,
+    pub symbol: String,
+    #[serde(rename = "unRealizedProfit")]
+    pub unrealized_profit: Decimal,
+    pub position_side: PositionSide,
     #[serde(with = "ts_milliseconds")]
     pub update_time: DateTime<Utc>,
 }
