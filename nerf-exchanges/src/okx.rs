@@ -344,10 +344,10 @@ where
             assert_eq!(uri.query(), None);
             req.headers_mut()
                 .append("Accept", "application/json".parse().unwrap());
-            *req.uri_mut() = format!("{}?{}", uri, query.clone()).parse().unwrap();
+            *req.uri_mut() = format!("{}?{}", uri, query).parse().unwrap();
             req
         } else {
-            let mut req = hyper::Request::new(hyper::Body::from(query.clone()));
+            let mut req = hyper::Request::new(hyper::Body::from(query));
             let uri = x.uri();
             assert_eq!(uri.query(), None);
             req.headers_mut()
@@ -361,7 +361,7 @@ where
                 .insert("OK-ACCESS-KEY", self.authentication.key.parse().unwrap());
             let timestamp = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
             req.headers_mut()
-                .insert("OK-ACCESS-TIMESTAMP", timestamp.clone().parse().unwrap());
+                .insert("OK-ACCESS-TIMESTAMP", timestamp.parse().unwrap());
             req.headers_mut().insert(
                 "OK-ACCESS-PASSPHRASE",
                 self.authentication.passphrase.parse().unwrap(),
