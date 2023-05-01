@@ -167,7 +167,7 @@ pub struct PostV1OrdersResponse {
 #[tag(Signer = Private)]
 pub struct GetV1Orders {
     pub market: String,
-    pub uuids: Vec<String>,
+    pub uuids: Vec<Uuid>,
     pub identifiers: Vec<String>,
     pub state: Option<OrderState>,
     pub states: Option<Vec<OrderState>>,
@@ -181,7 +181,7 @@ pub struct GetV1OrdersResponse(pub Vec<GetV1OrdersResponseItem>);
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct GetV1OrdersResponseItem {
-    pub uuid: String,
+    pub uuid: Uuid,
     pub side: Side,
     pub ord_type: OrderType,
     pub price: Decimal,
@@ -203,7 +203,7 @@ pub struct GetV1OrdersResponseItem {
 #[delete("https://api.upbit.com/v1/order", response = DeleteV1OrderResponse)]
 #[tag(Signer = Private)]
 pub struct DeleteV1Order {
-    pub uuid: Option<String>,
+    pub uuid: Option<Uuid>,
     pub identifier: Option<String>,
 }
 
@@ -562,7 +562,7 @@ impl From<common::GetOrders> for GetV1Orders {
 impl From<common::CancelOrder> for DeleteV1Order {
     fn from(x: common::CancelOrder) -> Self {
         Self {
-            uuid: Some(x.order_id),
+            uuid: Some(x.order_id.parse().expect("cannot parse order_id as UUID")),
             identifier: None,
         }
     }
