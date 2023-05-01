@@ -309,14 +309,17 @@ where
             }
 
             Box::pin(async {
-                let UpbitError { error } =
-                    serde_json::from_reader(hyper::body::aggregate(x).await?.reader())
-                        .map_err(Error::DeserializeJsonBody)?;
-
-                Err(Error::RequestFailed {
-                    code: Some(error.name),
-                    msg: Some(error.message),
-                })
+                let s = hyper::body::to_bytes(x).await.map_err(Error::Hyper)?;
+                match serde_json::from_slice::<UpbitError>(&s) {
+                    Ok(error) => Err(Error::RequestFailed {
+                        code: Some(error.error.name),
+                        msg: Some(error.error.message),
+                    }),
+                    Err(_) => Err(Error::RequestFailed {
+                        code: None,
+                        msg: Some(String::from_utf8_lossy(&s).to_string()),
+                    }),
+                }
             })
         }
     }
@@ -434,14 +437,17 @@ where
             }
 
             Box::pin(async {
-                let UpbitError { error } =
-                    serde_json::from_reader(hyper::body::aggregate(x).await?.reader())
-                        .map_err(Error::DeserializeJsonBody)?;
-
-                Err(Error::RequestFailed {
-                    code: Some(error.name),
-                    msg: Some(error.message),
-                })
+                let s = hyper::body::to_bytes(x).await.map_err(Error::Hyper)?;
+                match serde_json::from_slice::<UpbitError>(&s) {
+                    Ok(error) => Err(Error::RequestFailed {
+                        code: Some(error.error.name),
+                        msg: Some(error.error.message),
+                    }),
+                    Err(_) => Err(Error::RequestFailed {
+                        code: None,
+                        msg: Some(String::from_utf8_lossy(&s).to_string()),
+                    }),
+                }
             })
         }
     }
