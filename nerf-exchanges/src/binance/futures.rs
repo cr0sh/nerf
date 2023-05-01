@@ -134,7 +134,7 @@ pub struct GetFapiV1DepthResponse {
 #[derive(Clone, Debug, Serialize)]
 #[get("https://fapi.binance.com/fapi/v2/balance", response = GetFapiV2BalanceResponse)]
 #[tag(Signer = Private)]
-pub struct GetFapiV2Balance;
+pub struct GetFapiV2Balance {} // serde-urlencoded does not support serializing unit structs
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct GetFapiV2BalanceResponse(pub Vec<GetFapiV2BalanceResponseItem>);
@@ -475,7 +475,7 @@ impl From<common::GetOrderbook> for GetFapiV1Depth {
 
 impl From<common::GetBalance> for GetFapiV2Balance {
     fn from(_: common::GetBalance) -> Self {
-        Self
+        Self {}
     }
 }
 
