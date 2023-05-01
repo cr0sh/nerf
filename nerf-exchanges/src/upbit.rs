@@ -177,7 +177,7 @@ pub struct GetV1Orders {
 }
 
 #[derive(Clone, Debug, Deserialize)]
-pub struct GetV1OrdersResponse(Vec<GetV1OrdersResponseItem>);
+pub struct GetV1OrdersResponse(pub Vec<GetV1OrdersResponseItem>);
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct GetV1OrdersResponseItem {
