@@ -149,7 +149,7 @@ pub struct GetFapiV2BalanceResponseItem {
     pub cross_un_pnl: Decimal,
     pub available_balance: Decimal,
     pub max_withdraw_amount: Decimal,
-    pub margin_avaliable: bool,
+    pub margin_avaliable: Option<bool>,
     #[serde(with = "ts_milliseconds")]
     pub update_time: DateTime<Utc>,
 }
