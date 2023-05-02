@@ -200,6 +200,46 @@ pub struct GetV1OrdersResponseItem {
 
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize)]
+#[get("https://api.upbit.com/v1/order", response = GetV1OrderResponse)]
+#[tag(Signer = Private)]
+pub struct GetV1Order {
+    pub uuid: Option<Uuid>,
+    pub identifier: Option<Uuid>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct GetV1OrderResponse {
+    pub uuid: Uuid,
+    pub side: Side,
+    pub ord_type: OrderType,
+    pub price: Decimal,
+    pub state: OrderState,
+    pub market: String,
+    pub created_at: DateTime<Utc>,
+    pub volume: Decimal,
+    pub remaining_volume: Decimal,
+    pub reserved_fee: Decimal,
+    pub remaining_fee: Decimal,
+    pub paid_fee: Decimal,
+    pub locked: Decimal,
+    pub executed_volume: Decimal,
+    pub trades_count: u64,
+    pub trades: Vec<GetV1OrderTrade>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct GetV1OrderTrade {
+    pub market: String,
+    pub uuid: Uuid,
+    pub price: Decimal,
+    pub volume: Decimal,
+    pub funds: Decimal,
+    pub side: Side,
+    pub created_at: DateTime<Utc>,
+}
+
+#[skip_serializing_none]
+#[derive(Clone, Debug, Serialize)]
 #[delete("https://api.upbit.com/v1/order", response = DeleteV1OrderResponse)]
 #[tag(Signer = Private)]
 pub struct DeleteV1Order {
