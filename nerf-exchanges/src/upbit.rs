@@ -6,7 +6,6 @@ use crate::{
 use chrono::{serde::ts_milliseconds, DateTime, Utc};
 use hmac::{Hmac, Mac};
 use http::{Method, StatusCode, Uri};
-use hyper::body::Buf;
 use jwt::SignWithKey;
 use nerf::{delete, get, post, tag, Client, HttpRequest, Request};
 use rust_decimal::Decimal;
@@ -331,8 +330,10 @@ where
     fn try_from_response(x: hyper::Response<hyper::Body>) -> Self::TryFromResponseFuture {
         if x.status() == StatusCode::OK {
             Box::pin(async {
-                let resp = serde_json::from_reader(hyper::body::aggregate(x).await?.reader())
-                    .map_err(Error::DeserializeJsonBody)?;
+                let buf = hyper::body::to_bytes(x).await?;
+                let resp = serde_json::from_slice(&buf).map_err(|e| {
+                    Error::DeserializeJsonBody(e, String::from_utf8_lossy(&buf).to_string())
+                })?;
 
                 Ok(resp)
             })
@@ -461,8 +462,12 @@ where
         tracing::debug!(status = ?x.status());
         if x.status().is_success() {
             Box::pin(async {
-                serde_json::from_reader(hyper::body::aggregate(x).await?.reader())
-                    .map_err(Error::DeserializeJsonBody)
+                let buf = hyper::body::to_bytes(x).await?;
+                let resp = serde_json::from_slice(&buf).map_err(|e| {
+                    Error::DeserializeJsonBody(e, String::from_utf8_lossy(&buf).to_string())
+                })?;
+
+                Ok(resp)
             })
         } else {
             #[derive(Deserialize)]

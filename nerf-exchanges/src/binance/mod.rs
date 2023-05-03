@@ -12,7 +12,6 @@ use std::{
 
 use chrono::{serde::ts_milliseconds, DateTime, Utc};
 use hmac::{Hmac, Mac};
-use hyper::body::Buf;
 use nerf::{http::StatusCode, HttpRequest, Request};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use sha2::Sha256;
@@ -186,7 +185,7 @@ where
 {
     Box::pin(async move {
         let status = x.status();
-        let buf = hyper::body::aggregate(x).await?;
+        let buf = hyper::body::to_bytes(x).await?;
         if status != StatusCode::OK {
             #[derive(Deserialize)]
             struct ErrorResponse {
@@ -194,14 +193,17 @@ where
                 msg: String,
             }
 
-            let error: ErrorResponse =
-                serde_json::from_reader(buf.reader()).map_err(Error::DeserializeJsonBody)?;
+            let error: ErrorResponse = serde_json::from_slice(&buf).map_err(|e| {
+                Error::DeserializeJsonBody(e, String::from_utf8_lossy(&buf).to_string())
+            })?;
             Err(Error::RequestFailed {
                 code: Some(error.code.to_string()),
                 msg: Some(error.msg),
             })
         } else {
-            let resp = serde_json::from_reader(buf.reader()).map_err(Error::DeserializeJsonBody)?;
+            let resp = serde_json::from_slice(&buf).map_err(|e| {
+                Error::DeserializeJsonBody(e, String::from_utf8_lossy(&buf).to_string())
+            })?;
             Ok(resp)
         }
     })

@@ -176,18 +176,19 @@ where
 
         if x.status().is_success() {
             Box::pin(async {
-                let resp: CryptocomResponse<T::Response> = serde_json::from_reader(
-                    hyper::body::Buf::reader(hyper::body::aggregate(x).await?),
-                )
-                .map_err(Error::DeserializeJsonBody)?;
+                let buf = hyper::body::to_bytes(x).await?;
+                let resp: CryptocomResponse<T::Response> =
+                    serde_json::from_slice(&buf).map_err(|e| {
+                        Error::DeserializeJsonBody(e, String::from_utf8_lossy(&buf).to_string())
+                    })?;
                 Ok(resp.result.data)
             })
         } else {
             Box::pin(async {
-                let resp: CryptocomError = serde_json::from_reader(hyper::body::Buf::reader(
-                    hyper::body::aggregate(x).await?,
-                ))
-                .map_err(Error::DeserializeJsonBody)?;
+                let buf = hyper::body::to_bytes(x).await?;
+                let resp: CryptocomError = serde_json::from_slice(&buf).map_err(|e| {
+                    Error::DeserializeJsonBody(e, String::from_utf8_lossy(&buf).to_string())
+                })?;
                 Err(Error::RequestFailed {
                     code: Some(resp.code),
                     msg: Some(resp.message),

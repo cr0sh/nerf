@@ -19,8 +19,8 @@ pub enum Error {
     SerializeUrlencodedBodyUpbit(serde_urlencoded_upbit::ser::Error),
     #[error("cannot construct http::Request: {0}")]
     ConstructHttpRequest(nerf::http::Error),
-    #[error("cannot deserialize response into JSON: {0}")]
-    DeserializeJsonBody(serde_json::Error),
+    #[error("cannot deserialize response into JSON: {0}, payload: {1}")]
+    DeserializeJsonBody(serde_json::Error, String),
     #[error("request to API server returned error, code: {code:?}, message: {msg:?}")]
     RequestFailed {
         code: Option<String>,
