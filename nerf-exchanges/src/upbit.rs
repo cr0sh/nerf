@@ -229,7 +229,7 @@ pub struct GetV1OrderResponse {
 #[derive(Clone, Debug, Deserialize)]
 pub struct GetV1OrderTrade {
     pub market: String,
-    pub uuid: Uuid,
+    pub uuid: String, // Upbit adds bid- or ask- prefix to the UUID, hence invalid
     pub price: Decimal,
     pub volume: Decimal,
     pub funds: Decimal,
