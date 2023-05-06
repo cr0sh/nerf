@@ -11,6 +11,8 @@ use thiserror::Error;
 use nerf::{ClientService, ReadyCall};
 use tower::buffer::Buffer;
 
+pub use crate::dynamic::*;
+
 /// Conversion into common types.
 pub trait IntoCommon {
     type Output;
@@ -525,7 +527,10 @@ pub trait CommonOpsService:
         market: impl IntoMarket,
         ticks: Option<u64>,
     ) -> BoxedServiceFuture<Self, Self::GetOrderbookRequest>;
-    fn get_orders(&mut self, market: Market) -> BoxedServiceFuture<Self, Self::GetOrdersRequest>;
+    fn get_orders(
+        &mut self,
+        market: impl IntoMarket,
+    ) -> BoxedServiceFuture<Self, Self::GetOrdersRequest>;
     fn get_all_orders(&mut self) -> BoxedServiceFuture<Self, Self::GetAllOrdersRequest>;
     fn place_order(
         &mut self,
@@ -642,7 +647,11 @@ where
             .await
         })
     }
-    fn get_orders(&mut self, market: Market) -> BoxedServiceFuture<Self, Self::GetOrdersRequest> {
+    fn get_orders(
+        &mut self,
+        market: impl IntoMarket,
+    ) -> BoxedServiceFuture<Self, Self::GetOrdersRequest> {
+        let market = market.into_market();
         Box::pin(async move {
             self.ready_call(<Self::GetOrdersRequest>::try_from(GetOrders { market })?)
                 .await
