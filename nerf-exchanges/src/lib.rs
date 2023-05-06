@@ -6,6 +6,7 @@ pub mod binance;
 pub mod bithumb;
 pub mod common;
 pub mod cryptocom;
+mod dynamic;
 pub mod okx;
 pub mod upbit;
 
