@@ -1,17 +1,31 @@
 use std::{collections::HashMap, fmt::Debug, future::Future, pin::Pin};
 
 use crate::{
-    common::{self, Disabled, Signer, Unsupported},
+    common::{self, Disabled, Private, Signer, Unsupported},
     ts_milliseconds_str, Error,
 };
 use __private::Sealed;
 
 use chrono::{DateTime, Utc};
 use http::Method;
-use nerf::{get, tag, Client, HttpRequest, Request};
+use nerf::{get, post, tag, Client, HttpRequest, Request};
 use rust_decimal::Decimal;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OrderType {
+    Bid,
+    Ask,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum OrderStatus {
+    Pending,
+    Completed,
+    Cancel,
+}
 
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize)]
@@ -65,6 +79,97 @@ pub struct GetPublicOrderbookAllResponseItem {
     pub order_currency: String,
     pub bids: Vec<GetPublicOrderbookResponseItem>,
     pub asks: Vec<GetPublicOrderbookResponseItem>,
+}
+
+#[skip_serializing_none]
+#[derive(Clone, Debug, Serialize)]
+#[post("https://api.bithumb.com/info/orders", response = Vec<PostInfoOrdersResponseItem>)]
+#[tag(Signer = Private)]
+pub struct PostInfoOrders {
+    pub order_id: Option<String>,
+    #[serde(rename = "type")]
+    pub order_type: Option<OrderType>,
+    pub count: u64,
+    // TODO
+    // #[serde(with = "ts_milliseconds_str")]
+    // pub after: DateTime<Utc>,
+    pub order_currency: String,
+    pub payment_currency: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct PostInfoOrdersResponseItem {
+    pub order_currency: String,
+    pub payment_currency: String,
+    pub order_id: String,
+    #[serde(with = "ts_milliseconds_str")]
+    pub order_date: DateTime<Utc>,
+    #[serde(rename = "type")]
+    pub order_type: OrderType,
+    pub watch_price: Decimal,
+    pub units: Decimal,
+    pub units_remaining: Decimal,
+    pub price: Decimal,
+}
+
+#[skip_serializing_none]
+#[derive(Clone, Debug, Serialize)]
+#[post("https://api.bithumb.com/info/order_detail", response = PostInfoOrderDetailResponse)]
+#[tag(Signer = Private)]
+pub struct PostInfoOrderDetail {
+    order_id: String,
+    order_currency: String,
+    payment_currency: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct PostInfoOrderDetailResponse {
+    #[serde(with = "ts_milliseconds_str")]
+    pub order_date: DateTime<Utc>,
+    #[serde(rename = "type")]
+    pub order_type: OrderType,
+    pub order_status: OrderStatus,
+    pub order_currency: String,
+    pub payment_currency: String,
+    pub watch_price: Option<Decimal>,
+    pub order_price: Decimal,
+    pub order_qty: Decimal,
+    #[serde(with = "ts_milliseconds_str")]
+    pub cancel_date: DateTime<Utc>,
+    pub cancel_type: String,
+    // TODO
+    pub contract: Vec<serde_json::Value>,
+}
+
+#[skip_serializing_none]
+#[derive(Clone, Debug, Serialize)]
+#[post("https://api.bithumb.com/trade/{place_or_market}", response = PostTradeResponse)]
+#[tag(Signer = Private)]
+pub struct PostTrade {
+    pub place_or_market: String, // place, market_buy, market_sell
+    pub order_currency: String,
+    pub payment_currency: String,
+    pub units: Decimal,
+    pub price: Option<Decimal>,
+    #[serde(rename = "type")]
+    pub order_type: Option<OrderType>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct PostTradeResponse {
+    pub order_id: String,
+}
+
+#[skip_serializing_none]
+#[derive(Clone, Debug, Serialize)]
+#[post("https://api.bithumb.com/trade/cancel", response = ())]
+#[tag(Signer = Private)]
+pub struct PostTradeCancel {
+    #[serde(rename = "type")]
+    pub order_type: OrderType,
+    pub order_id: String,
+    pub order_currency: String,
+    pub payment_currency: String,
 }
 
 #[derive(Clone, Debug)]
@@ -176,6 +281,57 @@ impl From<common::GetOrderbook> for GetPublicOrderbook {
             order_currency: x.market.base().to_string(),
             payment_currency: x.market.quote().to_string(),
             count: x.ticks,
+        }
+    }
+}
+
+impl From<common::GetOrders> for PostInfoOrders {
+    fn from(x: common::GetOrders) -> Self {
+        Self {
+            order_id: None,
+            order_type: None,
+            count: 100,
+            order_currency: x.market.base().to_string(),
+            payment_currency: x.market.quote().to_string(),
+        }
+    }
+}
+
+impl From<common::PlaceOrder> for PostTrade {
+    fn from(x: common::PlaceOrder) -> Self {
+        let order_currency = x.market.base().to_string();
+        let payment_currency = x.market.quote().to_string();
+        match x.order {
+            common::Order::Market { side, quantity } => Self {
+                place_or_market: if side == common::Side::Buy {
+                    String::from("market_buy")
+                } else {
+                    String::from("market_sell")
+                },
+                order_currency,
+                payment_currency,
+                units: quantity,
+                price: None,
+                order_type: None,
+            },
+            common::Order::Limit {
+                side,
+                quantity,
+                price,
+                time_in_force: _,
+            } => Self {
+                place_or_market: String::from("place"),
+                order_currency,
+                payment_currency,
+                units: quantity,
+                price: Some(price),
+                order_type: Some(if side == common::Side::Buy {
+                    OrderType::Bid
+                } else {
+                    OrderType::Ask
+                }),
+            },
+            _ => todo!(),
         }
     }
 }
