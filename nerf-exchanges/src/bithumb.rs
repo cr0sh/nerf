@@ -47,8 +47,8 @@ pub struct GetPublicOrderbookResponse {
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct GetPublicOrderbookResponseItem {
-    quantity: Decimal,
-    price: Decimal,
+    pub quantity: Decimal,
+    pub price: Decimal,
 }
 
 #[derive(Clone, Debug, Deserialize)]
