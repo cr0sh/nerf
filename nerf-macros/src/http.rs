@@ -147,12 +147,12 @@ impl Spanned for HttpAttrKind {
 
 /// Parses raw endpoint string into `format!`-able string and subsequent parameteres.
 fn parse_endpoint(mut raw: String) -> (String, Vec<String>) {
-    static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#":[a-zA-Z_][a-zA-Z0-9_]*"#).unwrap());
+    static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"\{[a-zA-Z_][a-zA-Z0-9_]*?\}"#).unwrap());
     let mut fields = Vec::new();
     while let Some(m) = RE.find(&raw) {
         let range = m.range();
-        assert!(range.len() > 1);
-        fields.push(format!("self.{}", &raw[(range.start + 1)..range.end]));
+        assert!(range.len() > 2);
+        fields.push(format!("self.{}", &raw[(range.start + 1)..(range.end - 1)]));
         raw.replace_range(range, "{}");
     }
     (raw, fields)
@@ -169,12 +169,12 @@ fn test_parse_endpoint() {
     case("foobarbaz", "foobarbaz", &[]);
     case("http://foo", "http://foo", &[]);
     case(
-        "http://foo/:bar/:baz",
+        "http://foo/{bar}/{baz}",
         "http://foo/{}/{}",
         &["self.bar", "self.baz"],
     );
     case(
-        "http://foo/:bar/:baz/qux",
+        "http://foo/{bar}/{baz}/qux",
         "http://foo/{}/{}/qux",
         &["self.bar", "self.baz"],
     );
@@ -209,7 +209,7 @@ pub fn entrypoint(
     // };
 
     if endpoint.value().contains("{}") {
-        return syn::Error::new(endpoint.span(), "endpoint must not contain `{}`\nIf you meant a place for format arguments, use `:field_name` instead")
+        return syn::Error::new(endpoint.span(), "endpoint must not contain `{}`\nIf you meant a place for format arguments, use `{field_name}` instead")
             .into_compile_error()
             .into();
     }
