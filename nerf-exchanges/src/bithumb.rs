@@ -8,13 +8,14 @@ use __private::Sealed;
 
 use chrono::{DateTime, Utc};
 use http::Method;
-use nerf::{tag, Client, HttpRequest, Request};
+use nerf::{get, tag, Client, HttpRequest, Request};
 use rust_decimal::Decimal;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize)]
+#[get("https://api.upbit.com/public/orderbook/{order_currency}_{payment_currency}", response = GetPublicOrderbookResponse)]
 #[tag(Signer = Disabled)]
 pub struct GetPublicOrderbook {
     #[serde(skip)]
@@ -24,56 +25,15 @@ pub struct GetPublicOrderbook {
     pub count: Option<u64>,
 }
 
-impl Request for GetPublicOrderbook {
-    type Response = GetPublicOrderbookResponse;
-}
-
-impl HttpRequest for GetPublicOrderbook {
-    fn uri(&self) -> http::Uri {
-        format!(
-            "https://api.bithumb.com/public/orderbook/{}_{}",
-            self.order_currency, self.payment_currency
-        )
-        .parse()
-        .expect("cannot parse the generated uri")
-    }
-
-    fn method(&self) -> http::Method {
-        http::Method::GET
-    }
-}
-
-impl Sealed for GetPublicOrderbook {}
-
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize)]
+#[get("https://api.bithumb.com/public/orderbook/ALL_{payment_currency}", response = GetPublicOrderbookAllResponse)]
 #[tag(Signer = Disabled)]
 pub struct GetPublicOrderbookAll {
     #[serde(skip)]
     pub payment_currency: String,
     pub count: Option<u64>,
 }
-
-impl Request for GetPublicOrderbookAll {
-    type Response = GetPublicOrderbookAllResponse;
-}
-
-impl HttpRequest for GetPublicOrderbookAll {
-    fn uri(&self) -> http::Uri {
-        format!(
-            "https://api.bithumb.com/public/orderbook/ALL_{}",
-            self.payment_currency
-        )
-        .parse()
-        .expect("cannot parse the generated uri")
-    }
-
-    fn method(&self) -> http::Method {
-        http::Method::GET
-    }
-}
-
-impl Sealed for GetPublicOrderbookAll {}
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct GetPublicOrderbookResponse {
