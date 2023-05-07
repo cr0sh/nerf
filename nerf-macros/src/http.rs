@@ -7,7 +7,7 @@ use syn::{
     parse::{Parse, ParseStream},
     parse_macro_input,
     spanned::Spanned,
-    LitBool, LitStr, Path, Token, Type,
+    Expr, ExprField, LitBool, LitStr, Member, Path, Token, Type,
 };
 
 use crate::{NamedItem, PunctuatedExt};
@@ -152,7 +152,7 @@ fn parse_endpoint(mut raw: String) -> (String, Vec<String>) {
     while let Some(m) = RE.find(&raw) {
         let range = m.range();
         assert!(range.len() > 2);
-        fields.push(format!("self.{}", &raw[(range.start + 1)..(range.end - 1)]));
+        fields.push(raw[(range.start + 1)..(range.end - 1)].to_string());
         raw.replace_range(range, "{}");
     }
     (raw, fields)
@@ -171,12 +171,12 @@ fn test_parse_endpoint() {
     case(
         "http://foo/{bar}/{baz}",
         "http://foo/{}/{}",
-        &["self.bar", "self.baz"],
+        &["bar", "baz"],
     );
     case(
         "http://foo/{bar}/{baz}/qux",
         "http://foo/{}/{}/qux",
-        &["self.bar", "self.baz"],
+        &["bar", "baz"],
     );
 }
 
@@ -215,6 +215,13 @@ pub fn entrypoint(
     }
 
     let (sub, args) = parse_endpoint(endpoint.value());
+    let args = args
+        .into_iter()
+        .map(|arg| {
+            let ident = Ident::new(&arg, endpoint.span());
+            quote!(self.#ident)
+        })
+        .collect::<Vec<_>>();
     let sub = LitStr::new(&sub, endpoint.span());
 
     let endpoint = quote! {
