@@ -251,11 +251,7 @@ impl common::IntoCommon for Vec<GetPublicGetTickerResponseItem> {
                 let (base, quote) = x.instrument_name.split_once('_')?;
                 Some((
                     format!("spot:{base}/{quote}").into(),
-                    common::Ticker::new(
-                        x.best_bid.expect("empty orderbook"),
-                        x.best_ask.expect("empty orderbook"),
-                        Some(x.timestamp),
-                    ),
+                    common::Ticker::new(x.best_bid?, x.best_ask?, Some(x.timestamp)),
                 ))
             })
             .collect()
