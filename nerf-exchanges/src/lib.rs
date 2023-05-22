@@ -207,9 +207,9 @@ mod ts_milliseconds_str {
 
             fn serialize_unit_variant(
                 self,
-                name: &'static str,
-                variant_index: u32,
-                variant: &'static str,
+                _name: &'static str,
+                _variant_index: u32,
+                _variant: &'static str,
             ) -> Result<Self::Ok, Self::Error> {
                 todo!()
             }

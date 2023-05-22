@@ -7,7 +7,7 @@ use syn::{
     parse::{Parse, ParseStream},
     parse_macro_input,
     spanned::Spanned,
-    Expr, ExprField, LitBool, LitStr, Member, Path, Token, Type,
+    LitBool, LitStr, Path, Token, Type,
 };
 
 use crate::{NamedItem, PunctuatedExt};
